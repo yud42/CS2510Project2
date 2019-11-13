@@ -147,7 +147,7 @@ class StorageServer:
         
         self.peers = []
         self.connections = []
-        
+                
         self.switch = True
         
     def run(self):
@@ -239,7 +239,7 @@ class StorageServer:
         while True:
             is_head = False
             is_tail = False
-            data = self.receive_message()
+            data = connection.recv(MAX_RECV_SIZE)
             data = data.decode(COD)
             if not data:
                 # means the server has failed
@@ -262,16 +262,15 @@ class StorageServer:
             if is_tail:
                 print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
                 message = DISCONNECT.encode()
-                self.send_message(message)
+                connection.send(message)
                 update_stats(message)
                 break
+        
         filename, file = decode_update_message(data_body)
         file_path = os.path.join(self.data_path, filename)
         write_data(message_contents.encode(), file_path, "wb")
         return True
-        
-        
-        
+    
     def disconnect(self, connection, addr):
         """
         This method is used to remove connection from current connections
