@@ -7,20 +7,6 @@ import socket
 import json
 
 
-def decode_query_message(query_message):
-    """
-    Decode query message for file location.
-    :param query_message:
-    :return:
-    """
-    return query_message
-
-
-def encode_query_message(file_name):
-    query_message = FileSystem.QUERY_HEADER + file_name
-    return query_message
-
-
 def encode_location_message(peer_ids):
     """
     Encode return message for file location.

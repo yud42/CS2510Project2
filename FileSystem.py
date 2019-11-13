@@ -299,4 +299,18 @@ class Clients:
         --- Get a file list (Both 2 types of servers)
         --- Add files to storage server
     """
-    pass
+    def __init__(self, data_path, port):
+        """
+        Initialize client with remote server address and port number
+        
+        """
+        # set up socket
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # allow python to use recently closed socket
+        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+        self.locations = None
+        self.data_path = data_path
+        self.port = port  # server port
+    
+    
