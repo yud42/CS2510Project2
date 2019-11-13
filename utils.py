@@ -34,21 +34,21 @@ def encode_location_message(peer_ids):
 def decode_location_message(location_message):
     return json.loads(location_message)
 
-
-def decode_update_message(update_message):
-    file_name, port = update_message.split("||")
-    return file_name, int(port)
-
-
-def encode_update_message(file_name, port):
-    update_message = p2p.UPDATE_HEADER + file_name + "||" + str(port)
-    return update_message
-
 def encode_list_message(file_list):
     return p2p.LIST_HEADER + json.dumps(file_list)
 
 def decode_list_message(list_message):
     return json.loads(list_message)
+
+def encode_update_message(file_name, file):
+    message_dict = {'file_name':file_name, 'file':file}
+    return p2p.UPDATE_HEADER + json.dumps(message_dict) + p2p.DATA_TAIL
+
+def decode_update_message(update_message):
+    message_dict = json.loads(update_message)
+    return message_dict['file_name'],message_dict['file']
+
+
 
 def obtain(filename):
     """
@@ -76,15 +76,6 @@ def write_data(data,filename, mode):
         print("Something went wrong during writing file")
         
         
-#def ping_address(address):
-#    """
-#    get response time to an IP address
-#    :param address: remote address
-#    """
-##    start = time.time()
-#    res = os.system("ping -c 1 " + address)
-##    duration = time.time() - start
-#    return res
 
 def get_live_peer(locations):
     """
