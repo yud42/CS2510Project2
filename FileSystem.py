@@ -34,7 +34,7 @@ COD = 'utf-8'
 REQUEST_HEADER = '#request#'
 # Hearder of request file list
 LIST_HEADER = '#getlist#'
-# Header of update indexing map to indexing server
+# Header of add file to storage server/update information from storage or clients
 UPDATE_HEADER = '#update#'
 # Header of query by the filename from the indexing server
 QUERY_HEADER = '#query#'
@@ -148,28 +148,117 @@ class StorageServer:
             self.disconnect(connection, addr)
             return
         elif data and data[:len(REQUEST_HEADER)] == REQUEST_HEADER:
-            filename = data[len(REQUEST_HEADER):]
-            file_path = os.path.join(self.data_path, filename)
-            
-            message = DATA_HEADER.encode() + obtain(file_path) + DATA_TAIL.encode()
-            connection.send(message)
-            update_stats(message)
-
-                    #convert_to_music(self.msg)
-            ack = connection.recv(MAX_RECV_SIZE)
-            if ack.decode() == DISCONNECT:
-                self.disconnect(connection, addr)
-            return
+            self.read_File(data, connection, addr)
         elif data and data[:len(LIST_HEADER)] == LIST_HEADER:
-            file_list = get_list(self.data_path)
-            message = encode_list_message(file_list)
-            connection.send(message)
-            update_stats(message)
+            self.read_List(data, connection, addr)
+        elif data and data[:len(UPDATE_HEADER)] == UPDATE_HEADER:
+            self.add_file(data, connection, addr)
         else:
             self.disconnect(connection, addr)
             return
-            
-            
+    
+    def read_File(self, data, connection, addr):
+        """
+        This method handles downloads data requests from clients
+        :param data: The data listened from remote clients
+        :param connection: The connection server is connected to 
+        :param addr: (ip address, port) of the system connected
+        """
+        filename = data[len(REQUEST_HEADER):]
+        file_path = os.path.join(self.data_path, filename)
+        
+        message = DATA_HEADER.encode() + obtain(file_path) + DATA_TAIL.encode()
+        connection.send(message)
+        update_stats(message)
+
+        ack = connection.recv(MAX_RECV_SIZE)
+        if ack.decode() == DISCONNECT:
+            self.disconnect(connection, addr)
+        return
+    
+    def read_List(self, data, connection, addr):
+        """
+        This method handles show file list request from clients
+        :param data: The data listened from remote clients
+        :param connection: The connection server is connected to 
+        :param addr: (ip address, port) of the system connected
+        """
+        file_list = get_list(self.data_path)
+        message = encode_list_message(file_list)
+        connection.send(message)
+        update_stats(message)
+        
+        ack = connection.recv(MAX_RECV_SIZE)
+        if ack.decode() == DISCONNECT:
+            self.disconnect(connection, addr)
+        return
+    
+    def add_file(self, data, connection, addr):
+        """
+        This method handles add file requests from clients and directory servers
+        :param data: The data listened from remote connections
+        :param connection: The connection server is connected to 
+        :param addr: (ip address, port) of the system connected
+        """
+        data_body = data[len(UPDATE_HEADER):]
+        
+        while True:
+            is_head = False
+            is_tail = False
+            data = self.receive_message()
+            data = data.decode(COD)
+            if not data:
+                # means the server has failed
+                print("-" * 21 + " Server failed " + "-" * 21 + "\n")
+                break
+            message_contents = data
+            if data[:len(DATA_HEADER)] == DATA_HEADER:
+                message_contents = data[len(DATA_HEADER):]
+                is_head = True
+
+            if data[-len(DATA_TAIL):] == DATA_TAIL:
+                message_contents = message_contents[:-len(DATA_TAIL)]
+                is_tail = True
+
+            if len(message_contents) == 0:
+                print("Empty data body!")
+            else:
+                file_path = os.path.join(self.data_path, filename)
+                if is_head:
+                    print("-"*21 + "Start downloading <" + filename + "> to " + self.data_path + "-"*21 + "\n")
+                    write_data(message_contents.encode(), file_path, "wb")
+                else:
+                    write_data(message_contents.encode(), file_path, "ab")
+
+            if is_tail:
+                print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
+                message = DISCONNECT.encode()
+                self.send_message(message)
+                update_stats(message)
+                break
+        
+        
+        
+    def disconnect(self, connection, addr):
+        """
+        This method is used to remove connection from current connections
+        :param connection: socket we want to remove
+        :param addr: (ip address, port) of the system connected
+        """
+        self.connections.remove(connection)
+        self.peers.remove(addr)
+        connection.close()
+#        self.send_peers()
+        print("{}, disconnected\n".format(addr))
+    
+    def stop(self):
+        self.switch = False
+        
+    def close(self):
+        """
+        close socket
+        """
+        self.s.close()
 
 class Clients:
     """
