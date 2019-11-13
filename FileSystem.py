@@ -235,8 +235,7 @@ class StorageServer:
         :param connection: The connection server is connected to 
         :param addr: (ip address, port) of the system connected
         """
-        data_body = data[len(UPDATE_HEADER):]
-        
+        data_body = ''
         while True:
             is_head = False
             is_tail = False
@@ -244,11 +243,11 @@ class StorageServer:
             data = data.decode(COD)
             if not data:
                 # means the server has failed
-                print("-" * 21 + " Server failed " + "-" * 21 + "\n")
+                print("-" * 21 + " Other side failed " + "-" * 21 + "\n")
                 break
             message_contents = data
-            if data[:len(DATA_HEADER)] == DATA_HEADER:
-                message_contents = data[len(DATA_HEADER):]
+            if data[:len(UPDATE_HEADER)] == UPDATE_HEADER:
+                message_contents = data[len(UPDATE_HEADER):]
                 is_head = True
 
             if data[-len(DATA_TAIL):] == DATA_TAIL:
@@ -258,12 +257,7 @@ class StorageServer:
             if len(message_contents) == 0:
                 print("Empty data body!")
             else:
-                file_path = os.path.join(self.data_path, filename)
-                if is_head:
-                    print("-"*21 + "Start downloading <" + filename + "> to " + self.data_path + "-"*21 + "\n")
-                    write_data(message_contents.encode(), file_path, "wb")
-                else:
-                    write_data(message_contents.encode(), file_path, "ab")
+                data_body += message_contents
 
             if is_tail:
                 print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
@@ -271,6 +265,10 @@ class StorageServer:
                 self.send_message(message)
                 update_stats(message)
                 break
+        filename, file = decode_update_message(data_body)
+        file_path = os.path.join(self.data_path, filename)
+        write_data(message_contents.encode(), file_path, "wb")
+        return True
         
         
         

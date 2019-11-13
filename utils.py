@@ -42,7 +42,7 @@ def decode_list_message(list_message):
 
 def encode_update_message(file_name, file):
     message_dict = {'file_name':file_name, 'file':file}
-    return p2p.UPDATE_HEADER + json.dumps(message_dict)
+    return p2p.UPDATE_HEADER + json.dumps(message_dict) + p2p.DATA_TAIL
 
 def decode_update_message(update_message):
     message_dict = json.loads(update_message)
