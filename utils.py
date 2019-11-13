@@ -1,7 +1,7 @@
 """
-Utility functions for p2p network
+Utility functions for FileSystem network
 """
-import p2p
+import FileSystem
 import os
 import socket
 import json
@@ -17,7 +17,7 @@ def decode_query_message(query_message):
 
 
 def encode_query_message(file_name):
-    query_message = p2p.QUERY_HEADER + file_name
+    query_message = FileSystem.QUERY_HEADER + file_name
     return query_message
 
 
@@ -28,21 +28,21 @@ def encode_location_message(peer_ids):
     :param file_name
     :return:
     """
-    return p2p.LOCATION_HEADER + json.dumps(list(peer_ids))
+    return FileSystem.LOCATION_HEADER + json.dumps(list(peer_ids))
 
 
 def decode_location_message(location_message):
     return json.loads(location_message)
 
 def encode_list_message(file_list):
-    return p2p.LIST_HEADER + json.dumps(file_list)
+    return FileSystem.LIST_HEADER + json.dumps(file_list)
 
 def decode_list_message(list_message):
     return json.loads(list_message)
 
 def encode_update_message(file_name, file):
     message_dict = {'file_name':file_name, 'file':file}
-    return p2p.UPDATE_HEADER + json.dumps(message_dict) + p2p.DATA_TAIL
+    return FileSystem.UPDATE_HEADER + json.dumps(message_dict) + FileSystem.DATA_TAIL
 
 def decode_update_message(update_message):
     message_dict = json.loads(update_message)
@@ -100,15 +100,15 @@ def get_addr():
 
 
 def get_index_server_port(filename):
-    if ord(filename[0]) < p2p.S1:
+    if ord(filename[0]) < FileSystem.S1:
         # connect to index server A
-        return p2p.INDEX_PORT_A
-    elif ord(filename[0]) < p2p.S2:
+        return FileSystem.INDEX_PORT_A
+    elif ord(filename[0]) < FileSystem.S2:
         # connect to index server B
-        return p2p.INDEX_PORT_B
+        return FileSystem.INDEX_PORT_B
     else:
         # connect to index server C
-        return p2p.INDEX_PORT_C
+        return FileSystem.INDEX_PORT_C
      
 def get_list(filepath):
     datalist = os.listdir(filepath)
