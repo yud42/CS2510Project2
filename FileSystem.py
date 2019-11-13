@@ -81,14 +81,49 @@ Three roles of file system
 
 class DirectoryServer:
     """
-    Indexing server mainly used for:
+    Directory server mainly used for:
         --- Keep directories for files
         --- Handle connect request from clients
         --- Sending propagate instructions to servers
         --- Request files to new node
         --- Backup
     """
-    pass
+    def __init__(self, address, port, storage_nodes):
+        self.address = address
+        self.port = port
+        # (location: status) of all running storage nodes, the first one is the primary node
+        # status is 1 or 0, respectively meaning ready or not.
+        # location is in the format of (address, port)
+        self.storage_nodes = storage_nodes
+        # file list
+        self.file_list = []
+        # set up socket
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # allow python to use recently closed socket
+        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.s.bind((self.address, self.port))
+        # listen all messages
+        self.s.listen(MAX_QUEUE_SIZE)
+        print("-" * 12 + "Directory Server {0:1} Running".format(address, port) + "-" * 21 + "\n")
+
+    def connect(self):
+        """
+
+        :return: location of the primary storage node
+        """
+        assert self.storage_nodes[0][1] == 1, "Error: the primary node is not ready!"
+        return self.storage_nodes[0][0]
+
+    def getFileList(self):
+        """
+
+        :return: get file list
+        """
+        return self.file_list
+
+    
+
+        
 
 
 
