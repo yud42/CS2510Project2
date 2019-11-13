@@ -23,9 +23,9 @@ from collections import defaultdict
 
 #server configs
 StorageServerPortBase = 5000
-StorageServerIP = ..
+StorageServerIP = ''
 DirectoryServerPortBase = 6000
-DirectoryServerIP = ..
+DirectoryServerIP = ''
 
 
 #data transfer needs
@@ -36,13 +36,11 @@ COD = 'utf-8'
 REQUEST_HEADER = '#request#'
 # Hearder of request file list
 LIST_HEADER = '#getlist#'
-# Header of add file to storage server/update information from storage or clients
-UPDATE_HEADER = '#update#'
 # Header of query by the filename from the indexing server
 QUERY_HEADER = '#query#'
 # Header of message with location of peer based on the filename
 LOCATION_HEADER = '#locat#'
-# Header of data
+# Header of data, Header of add file to storage server/update information from storage or clients
 DATA_HEADER = '#data#'
 # Header of file list
 LIST_HEADER = '#list#'
@@ -154,17 +152,25 @@ class DirectoryServer:
         """
         self.launch_num += 1
         port = StorageServerPortBase + self.launch_num
-        #TODO: use storage node class
-        # set up socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # launch new storage server
+        new_storage_server = StorageServer(data_path="data_" + str(self.launch_num), port=port)
+        new_storage_server.run()
+        # set up socket for requesting files
+        s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # request all files from the primary storage node
         location = self.connect()
-        s.connect(location)
-        s.send()
+        s1.connect(location)
+        # send all files to the new storage node
+        s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s2.connect((StorageServerIP, port))
+        for file_name in self.file_list:
+            s1.send(encode_request_message(file_name))
+            data = s1.recv(MAX_RECV_SIZE)
+            s2.send(data)
 
-
-
+            
 class StorageServer:
     """
     Server contains actual files used for:
