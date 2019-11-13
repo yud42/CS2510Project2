@@ -450,9 +450,10 @@ class Clients:
             if data[:len(LOCATION_HEADER)] == LOCATION_HEADER:
                 self.locations = decode_location_message(data[len(LOCATION_HEADER):])
                 print("Got location of primary storage node: {0}\n".format(self.locations))
-                return self.locations
         except Exception:
             print("Failed to query file location: disconnected to the indexing server.")
+            
+        return self.locations
       
     def get_FileList(self, isDir):
         """
@@ -472,9 +473,10 @@ class Clients:
             if data[:len(LIST_HEADER)] == LIST_HEADER:
                 self.file_list = decode_list_message(data[len(LIST_HEADER):])
                 print("Got file list: {0}\n".format(self.file_list))
-                return self.file_list
         except Exception:
             print("Failed to query file list: disconnected to the remote server.")
+            
+        return self.file_list
                 
     def readFile(self, filename):
         """
@@ -534,6 +536,7 @@ class Clients:
         message = encode_update_message(filename, file).encode(COD)
         self.s.send(message)
         update_stats(message)
+        return True
 
     def close(self):
         """
