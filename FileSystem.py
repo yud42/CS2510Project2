@@ -23,9 +23,10 @@ from collections import defaultdict
 
 #server configs
 StorageServerPortBase = 5000
-#StorageServerIP = ..
+StorageServerIP = ''
 DirectoryServerPortBase = 6000
-#DirectoryServerIP = ..
+DirectoryServerIP = ''
+
 
 
 #data transfer needs
@@ -35,14 +36,12 @@ COD = 'utf-8'
 # Header of request data to server peer
 REQUEST_HEADER = '#request#'
 # Hearder of request file list
-LIST_HEADER = '#getlist#'
-# Header of add file to storage server/update information from storage or clients
-UPDATE_HEADER = '#update#'
+GETLIST_HEADER = '#getlist#'
 # Header of query by the filename from the indexing server
 QUERY_HEADER = '#query#'
 # Header of message with location of peer based on the filename
 LOCATION_HEADER = '#locat#'
-# Header of data
+# Header of data, Header of add file to storage server/update information from storage or clients
 DATA_HEADER = '#data#'
 # Header of file list
 LIST_HEADER = '#list#'
@@ -158,17 +157,25 @@ class DirectoryServer:
         """
         self.launch_num += 1
         port = StorageServerPortBase + self.launch_num
-        #TODO: use storage node class
-        # set up socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # launch new storage server
+        new_storage_server = StorageServer(data_path="data_" + str(self.launch_num), port=port)
+        new_storage_server.run()
+        # set up socket for requesting files
+        s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         # request all files from the primary storage node
         location = self.connect()
-        s.connect(location)
-        s.send()
+        s1.connect(location)
+        # send all files to the new storage node
+        s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s2.connect((StorageServerIP, port))
+        for file_name in self.file_list:
+            s1.send(encode_request_message(file_name))
+            data = s1.recv(MAX_RECV_SIZE)
+            s2.send(data)
 
-
-
+            
 class StorageServer:
     """
     Server contains actual files used for:
@@ -186,6 +193,9 @@ class StorageServer:
         addr = StorageServerIP
         self.s.bind((addr, port))
         self.s.listen(MAX_QUEUE_SIZE)
+        
+        self.dir_ip = DirectoryServerIP
+        self.dir_port = DirectoryServerPortBase
         
         self.peers = []
         self.connections = []
@@ -227,7 +237,7 @@ class StorageServer:
         elif data and data[:len(LIST_HEADER)] == LIST_HEADER:
             self.read_List(data, connection, addr)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
-            self.add_file(data, connection, addr)
+            self.get_file(data, connection, addr)
         else:
             self.disconnect(connection, addr)
             return
@@ -268,7 +278,7 @@ class StorageServer:
             self.disconnect(connection, addr)
         return
     
-    def add_file(self, data, connection, addr):
+    def get_file(self, data, connection, addr):
         """
         This method handles add file requests from clients and directory servers
         :param data: The data listened from remote connections
@@ -307,9 +317,31 @@ class StorageServer:
                 break
         
         filename, file = decode_update_message(data_body)
+        self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
         write_data(message_contents.encode(), file_path, "wb")
         return True
+    
+    def addFile(self, filename, file):
+        """
+        This method is used to notify directory server to add a file to system
+        :param filename: The filename 
+        :param file: The file should be add
+        """
+        try:
+            self.s.connect(self.dir_ip, self.dir_port)
+        except socket.error:
+            self.dir_port += 1
+            self.s.connect(self.dir_ip, self.dir_port)
+            print('Error seen when connecting to directory server!')
+            message = DIR_ERROR.encode()
+            self.s.send(message)
+            update_stats()
+        
+        message = encode_update_message(filename, file).encode(COD)
+        self.s.send(message)
+        update_stats(message)        
+    
     
     def disconnect(self, connection, addr):
         """
@@ -357,18 +389,156 @@ class Clients:
         self.dir_ip = DirectoryServerIP
         self.dir_port = DirectoryServerPortBase
         
-    def send_error(self, errortype):
+        self.file_list = None
+        
+    def send_error(self, dirError):
         """
         This method is used to notify directory servers errors
-        :param errortype: 
+        :param dirError: True/False indicates wheather client get problem on connect
+                         to Directory server/Storage server. 
+                         True---Errors happened during connecting to directory server
+                         False---Errors happened during connecting to storage server
         """
+        if dirError:
+            print('Error seen when connecting to directory server!')
+            message = DIR_ERROR.encode()
+            self.s.send(message)
+            update_stats()
+        else:
+            print('Error seen when connecting to storage server!')
+            self.build_connection(isDir=True)
+            message = STORAGE_ERROR.encode()
+            self.s.send(message)
+            update_stats()
+        
+    def build_connection(self, isDir):
+        """
+        This method is used to build actual connection with directory/storage server
+        :param isDir: True/False indicates wheather client connects to Directory server/Storage server. 
+                         True---connecting to directory server
+                         False---connecting to storage server
+        """
+        if isDir:
+            try:
+                self.s.connect(self.dir_ip, self.dir_port)
+            except socket.error:
+                self.dir_port += 1
+                self.s.connect(self.dir_ip, self.dir_port)
+                self.send_error(dirError=True)
+        else:
+            if self.locations == None:
+                print("No storage node known!")
+            else:
+                try:
+                    addr, port = self.locations
+                    self.s.connect(addr, port)
+                except socket.error:
+                    self.send_error(dirError=False)
         
     def connect(self):
+        """
+        This method is used to get the loaction of primary storage node from directory server
+        """
+        self.build_connection(isDir=True)
+        
+        query_message = QUERY_HEADER.encode(COD)
+        self.s.send(query_message)  # send query message
+        update_stats(query_message)
         try:
-            self.s.connect(self.dir_ip, self.dir_port)
-        except socket.error:
-            self.dir_port += 1
-            self.s.connect(self.dir_ip, self.dir_port)
+            data = self.s.recv(MAX_RECV_SIZE)  # read message
+            data = data.decode(COD)
+            if data[:len(LOCATION_HEADER)] == LOCATION_HEADER:
+                self.locations = decode_location_message(data[len(LOCATION_HEADER):])
+                print("Got location of primary storage node: {0}\n".format(self.locations))
+                return self.locations
+        except Exception:
+            print("Failed to query file location: disconnected to the indexing server.")
+      
+    def get_FileList(self, isDir):
+        """
+        This method is used to ask file list from directory/storage server
+        :param isDir: True/False indicates wheather client ask from Directory server/Storage server. 
+                         True---ask from directory server
+                         False---ask from storage server
+        """
+        self.build_connection(isDir)
+        
+        message = GETLIST_HEADER.encode(COD)
+        self.s.send(message)
+        update_stats(message)
+        try:
+            data = self.s.recv(MAX_RECV_SIZE)  # read message
+            data = data.decode(COD)
+            if data[:len(LIST_HEADER)] == LIST_HEADER:
+                self.file_list = decode_list_message(data[len(LIST_HEADER):])
+                print("Got file list: {0}\n".format(self.file_list))
+                return self.file_list
+        except Exception:
+            print("Failed to query file list: disconnected to the remote server.")
+                
+    def readFile(self, filename):
+        """
+        This method is used to get file from storage node invoked by client
+        :param filename: The file name requested.
+        """
+        self.build_connection(isDir=False)
+        
+        message = encode_request_message.encode(COD)
+        self.s.send(message)
+        update_stats(message)
+        
+        data_body = ''
+        while True:
+            is_head = False
+            is_tail = False
+            data = self.s.recv(MAX_RECV_SIZE)
+            data = data.decode(COD)
+            if not data:
+                # means the server has failed
+                print("-" * 21 + " Other side failed " + "-" * 21 + "\n")
+                break
+            message_contents = data
+            if data[:len(DATA_HEADER)] == DATA_HEADER:
+                message_contents = data[len(DATA_HEADER):]
+                is_head = True
+
+            if data[-len(DATA_TAIL):] == DATA_TAIL:
+                message_contents = message_contents[:-len(DATA_TAIL)]
+                is_tail = True
+
+            if len(message_contents) == 0:
+                print("Empty data body!")
+            else:
+                data_body += message_contents
+
+            if is_tail:
+                print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
+                message = DISCONNECT.encode()
+                self.s.send(message)
+                update_stats(message)
+                break
+        
+        file = data_body.decode()
+        file_path = os.path.join(self.data_path, filename)
+        write_data(message_contents.encode(), file_path, "wb")
+        return True
+        
+    def addFile(self, filename, file):
+        """
+        This method is used to add file from storage node invoked by client
+        :param filename: The file name added
+        :param file: The file added
+        """
+        self.build_connection(isDir=False)
+        
+        message = encode_update_message(filename, file).encode(COD)
+        self.s.send(message)
+        update_stats(message)
+
+        
+            
+            
+            
             
             
     
