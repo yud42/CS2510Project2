@@ -535,6 +535,16 @@ class Clients:
         self.s.send(message)
         update_stats(message)
 
+    def close(self):
+        """
+        close socket
+        """
+        self.s.shutdown(socket.SHUT_RDWR)
+        self.s.close()
+    
+    def open_socket(self):
+        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
             
             
