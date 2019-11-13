@@ -7,33 +7,44 @@ import socket
 import json
 
 
-def encode_location_message(peer_ids):
+
+def encode_location_message(location):
     """
     Encode return message for file location.
-    :param peer_ids: a set of peers which contain the requested file.
-    :param file_name
+    :param location: a set of peers which contain the requested file.
     :return:
     """
-    return FileSystem.LOCATION_HEADER + json.dumps(list(peer_ids))
+    return FileSystem.LOCATION_HEADER + json.dumps(location)
 
 
 def decode_location_message(location_message):
     return json.loads(location_message)
 
+
 def encode_list_message(file_list):
     return FileSystem.LIST_HEADER + json.dumps(file_list)
 
+
 def decode_list_message(list_message):
     return json.loads(list_message)
+
 
 def encode_update_message(file_name, file):
     message_dict = {'file_name':file_name, 'file':file}
     return FileSystem.UPDATE_HEADER + json.dumps(message_dict) + FileSystem.DATA_TAIL
 
+
 def decode_update_message(update_message):
     message_dict = json.loads(update_message)
     return message_dict['file_name'],message_dict['file']
 
+
+def encode_request_message(file_name):
+    return FileSystem.REQUEST_HEADER + file_name
+
+
+def decode_request_message(request_message):
+    return request_message
 
 
 def obtain(filename):

@@ -22,8 +22,10 @@ from collections import defaultdict
 
 
 #server configs
-
-
+StorageServerPortBase = 5000
+#StorageServerIP = ..
+DirectoryServerPortBase = 6000
+#DirectoryServerIP = ..
 
 
 #data transfer needs
@@ -48,6 +50,10 @@ LIST_HEADER = '#list#'
 DATA_TAIL = '#dataend#'
 #disconnect message to end a connection
 DISCONNECT = '#QUIT#'
+#ERROR from client indicate primary directory server down
+DIR_ERROR = '#DIRFAIL#'
+#ERROR from client indicate primary storage server down
+STORAGE_ERROR = '#STORAGEFAIL#'
 
 # Maximum Queue length
 MAX_QUEUE_SIZE = 5
@@ -91,12 +97,12 @@ class DirectoryServer:
     def __init__(self, address, port, storage_nodes):
         self.address = address
         self.port = port
-        # (location: status) of all running storage nodes, the first one is the primary node
+        # (location, status) of all running storage nodes, the first one is the primary node
         # status is 1 or 0, respectively meaning ready or not.
         # location is in the format of (address, port)
         self.storage_nodes = storage_nodes
         # file list
-        self.file_list = []
+        self.file_list = set()
         # set up socket
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # allow python to use recently closed socket
@@ -104,6 +110,10 @@ class DirectoryServer:
         self.s.bind((self.address, self.port))
         # listen all messages
         self.s.listen(MAX_QUEUE_SIZE)
+        # the number of down storage node before repairing
+        self.down_num = 0
+        # the number of storage nodes have already been launched, by default is 3
+        self.launch_num = 3
         print("-" * 12 + "Directory Server {0:1} Running".format(address, port) + "-" * 21 + "\n")
 
     def connect(self):
@@ -121,9 +131,41 @@ class DirectoryServer:
         """
         return self.file_list
 
-    
+    def newFile(self, file_name, file):
+        self.file_list.add(file_name)
+        print("Synchronizing file {0} in the storage system\n".format(file_name))
+        for location, status in self.storage_nodes:
+            print("Directory Server connects to storage node {0}\n".format(location))
+            # set up socket
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            # allow python to use recently closed socket
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.connect(location)
+                s.send(encode_update_message(file_name, file))
+            except socket.error:
+                self.down_num += 1
+                self.storage_nodes.remove((location, status))
+                print("Storage node {} is down, remove it from storage list")
+            s.shutdown(socket.SHUT_RDWR)
+            s.close()
+            print("Directory Server disconnects from storage node {0}\n".format(location))
 
-        
+    def launch_new(self):
+        """
+        Launch a new storage node since an old one is down. Copy all the files into the new one.
+        :return:
+        """
+        self.launch_num += 1
+        port = StorageServerPortBase + self.launch_num
+        #TODO: use storage node class
+        # set up socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # request all files from the primary storage node
+        location = self.connect()
+        s.connect(location)
+        s.send()
 
 
 
@@ -141,7 +183,7 @@ class StorageServer:
         # define a socket
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        addr = INDEX_SERVER
+        addr = StorageServerIP
         self.s.bind((addr, port))
         self.s.listen(MAX_QUEUE_SIZE)
         
@@ -161,8 +203,6 @@ class StorageServer:
     
             # append to the list of peers 
             self.peers.append(addr)
-            #print("Peers are: {}".format(self.peers))
-    #        self.send_peers()
             # create a thread for a connection
             c_thread = threading.Thread(target=self.handler, args=(connection, addr))
             c_thread.daemon = True
@@ -186,7 +226,7 @@ class StorageServer:
             self.read_File(data, connection, addr)
         elif data and data[:len(LIST_HEADER)] == LIST_HEADER:
             self.read_List(data, connection, addr)
-        elif data and data[:len(UPDATE_HEADER)] == UPDATE_HEADER:
+        elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
             self.add_file(data, connection, addr)
         else:
             self.disconnect(connection, addr)
@@ -246,8 +286,8 @@ class StorageServer:
                 print("-" * 21 + " Other side failed " + "-" * 21 + "\n")
                 break
             message_contents = data
-            if data[:len(UPDATE_HEADER)] == UPDATE_HEADER:
-                message_contents = data[len(UPDATE_HEADER):]
+            if data[:len(DATA_HEADER)] == DATA_HEADER:
+                message_contents = data[len(DATA_HEADER):]
                 is_head = True
 
             if data[-len(DATA_TAIL):] == DATA_TAIL:
@@ -299,6 +339,7 @@ class Clients:
         --- Get a file list (Both 2 types of servers)
         --- Add files to storage server
     """
+    
     def __init__(self, data_path, port):
         """
         Initialize client with remote server address and port number
@@ -312,5 +353,23 @@ class Clients:
         self.locations = None
         self.data_path = data_path
         self.port = port  # server port
+        
+        self.dir_ip = DirectoryServerIP
+        self.dir_port = DirectoryServerPortBase
+        
+    def send_error(self, errortype):
+        """
+        This method is used to notify directory servers errors
+        :param errortype: 
+        """
+        
+    def connect(self):
+        try:
+            self.s.connect(self.dir_ip, self.dir_port)
+        except socket.error:
+            self.dir_port += 1
+            self.s.connect(self.dir_ip, self.dir_port)
+            
+            
     
     
