@@ -79,10 +79,10 @@ def get_stats():
     return num_of_messages,num_of_bytes
 
 
-
 """
 Three roles of file system
 """
+
 
 class DirectoryServer:
     """
@@ -113,6 +113,7 @@ class DirectoryServer:
         self.down_num = 0
         # the number of storage nodes have already been launched, by default is 3
         self.launch_num = 3
+        self.run = True
         print("-" * 12 + "Directory Server {0:1} Running".format(address, port) + "-" * 21 + "\n")
 
     def connect(self):
@@ -120,62 +121,180 @@ class DirectoryServer:
 
         :return: location of the primary storage node
         """
-        assert self.storage_nodes[0][1] == 1, "Error: the primary node is not ready!"
+        assert self.storage_nodes[0][1] == 1, "Error: the primary node is not ready!\n"
         return self.storage_nodes[0][0]
 
-    def getFileList(self):
+    def getLocation(self, connection, addr):
+        location = self.connect()
+        msg = encode_location_message(location).encode(COD)
+        connection.send(msg)
+        update_stats(msg)
+
+        ack = connection.recv(MAX_RECV_SIZE)
+        if ack.decode(COD) == DISCONNECT:
+            self.disconnect(connection, addr)
+        return
+
+    def getFileList(self, connection, addr):
+        """
+        Send complete file list and send it to "connection".
+        :return:
+        """
+        file_list = self.file_list
+        message = encode_list_message(file_list).encode(COD)
+        connection.send(message)
+        update_stats(message)
+
+        ack = connection.recv(MAX_RECV_SIZE)
+        if ack.decode(COD) == DISCONNECT:
+            self.disconnect(connection, addr)
+        return
+
+    def detect_storage_node_down(self, location, status):
         """
 
-        :return: get file list
+        :param location: the location of the failed storage node
+         :param status: the status of the failed storage node
+        :return:
         """
-        return self.file_list
+        self.down_num += 1
+        self.storage_nodes.remove((location, status))
+        print("Storage node {} is down, remove it from storage list\n")
+        print("Starting a new storage node ...\n")
+        self.launch_new_sn()
 
     def newFile(self, file_name, file):
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
         for location, status in self.storage_nodes:
-            print("Directory Server connects to storage node {0}\n".format(location))
+            print("Directory Server is connecting to storage node {0}\n".format(location))
             # set up socket
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             # allow python to use recently closed socket
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 s.connect(location)
-                s.send(encode_update_message(file_name, file))
+                print("Directory Server is connected to storage node {0}\n".format(location))
+                msg = encode_update_message(file_name, file).encode(COD)
+                s.send(msg)
+                update_stats(msg)
             except socket.error:
-                self.down_num += 1
-                self.storage_nodes.remove((location, status))
-                print("Storage node {} is down, remove it from storage list")
+                self.detect_storage_node_down(location, status)
             s.shutdown(socket.SHUT_RDWR)
             s.close()
             print("Directory Server disconnects from storage node {0}\n".format(location))
 
-    def launch_new(self):
+    def launch_new_sn(self):
         """
         Launch a new storage node since an old one is down. Copy all the files into the new one.
         :return:
         """
         self.launch_num += 1
-        port = StorageServerPortBase + self.launch_num
+        new_port = StorageServerPortBase + self.launch_num
         # launch new storage server
-        new_storage_server = StorageServer(data_path="data_" + str(self.launch_num), port=port)
+        new_data_path = "data_" + str(self.launch_num)
+        new_storage_server = StorageServer(data_path=new_data_path, port=new_port)
         new_storage_server.run()
-        # set up socket for requesting files
-        s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        # request all files from the primary storage node
-        location = self.connect()
-        s1.connect(location)
-        # send all files to the new storage node
-        s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s2.connect((StorageServerIP, port))
+        self.storage_nodes.append(((StorageServerIP, new_port), 0))
+        print("New storage node ({0}:{1}) is started. Copying files to the new storage node ...\n".format(new_data_path, new_port))
         for file_name in self.file_list:
-            s1.send(encode_request_message(file_name))
-            data = s1.recv(MAX_RECV_SIZE)
-            s2.send(data)
+            # set up socket for requesting files
+            s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            while True:
+                # request files from the primary storage node
+                location = self.connect()
+                try:
+                    s1.connect(location)
+                    break
+                except socket.error:
+                    # the primary storage node is down
+                    self.detect_storage_node_down(location, 1)
 
-            
+            message = encode_request_message(file_name).encode(COD)
+            s1.send(message)
+            update_stats(message)
+
+            # send files to the new storage node
+            s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s2.connect((StorageServerIP, new_port))
+            except socket.error:
+                # the new storage node is down
+                self.detect_storage_node_down((StorageServerIP, new_port), 0)
+                return
+
+            while True:
+                data = s1.recv(MAX_RECV_SIZE)
+                s2.send(data)
+                update_stats(data)
+                if data.decode(COD)[-len(DATA_TAIL):] == DATA_TAIL:
+                    # is tail
+                    break
+            ack = DISCONNECT.encode(COD)
+            s1.send(ack)
+            update_stats(ack)
+            msg = s2.recv(MAX_RECV_SIZE)
+            if msg.decode(COD) == DISCONNECT:
+                pass
+            else:
+                print("Unrecognized message received by directory server: {}".format(msg))
+            s1.shutdown(socket.SHUT_RDWR)
+            s1.close()
+            s2.shutdown(socket.SHUT_RDWR)
+            s2.close()
+
+    def handler(self, connection, addr):
+        """
+        This method deals with listening requests and replying from the clients or storage nodes
+        This methods also closes the connection if the client has left
+        :param connection: The connection server is connected to
+        :param addr: (ip address, port) of the system connected
+        """
+        data = connection.recv(MAX_RECV_SIZE)
+        data = data.decode(COD)
+        if data and data == DISCONNECT:
+            self.disconnect(connection, addr)
+            return
+        elif data and data[:len(LIST_HEADER)] == LIST_HEADER:
+            self.getFileList(connection, addr)
+        elif data and data[:len(QUERY_HEADER)] == QUERY_HEADER:
+            self.getLocation(connection, addr)
+        elif data and data == STORAGE_ERROR:
+            self.detect_storage_node_down(self.connect(), 1)
+        else:
+            print("Unrecognized message received by directory server: {}".format(data))
+            self.disconnect(connection, addr)
+            return
+
+    def run(self):
+        """
+        This method is use to run the server
+        This method creates a different thread for each connection
+        """
+        while self.run:
+            connection, addr = self.s.accept()
+            # create a thread for a connection
+            c_thread = threading.Thread(target=self.handler, args=(connection, addr))
+            c_thread.daemon = True
+            c_thread.start()
+            print("{0}, connected to directory server {1}\n".format(addr, self.port))
+
+    def stop(self):
+        self.run = False
+        print("Stop the directory server {0}".format(self.port))
+
+    def disconnect(self, connection, addr):
+        """
+        This method is used to disconnect the current connection
+        :param connection: socket we want to disconnect
+        :param addr: (ip address, port) of the system connected
+        """
+        connection.close()
+        print("{0}, disconnected from the directory server {1}\n".format(addr, self.port))
+
+
 class StorageServer:
     """
     Server contains actual files used for:
@@ -252,12 +371,12 @@ class StorageServer:
         filename = data[len(REQUEST_HEADER):]
         file_path = os.path.join(self.data_path, filename)
         
-        message = DATA_HEADER.encode() + obtain(file_path) + DATA_TAIL.encode()
+        message = DATA_HEADER.encode(COD) + obtain(file_path) + DATA_TAIL.encode(COD)
         connection.send(message)
         update_stats(message)
 
         ack = connection.recv(MAX_RECV_SIZE)
-        if ack.decode() == DISCONNECT:
+        if ack.decode(COD) == DISCONNECT:
             self.disconnect(connection, addr)
         return
     
@@ -274,7 +393,7 @@ class StorageServer:
         update_stats(message)
         
         ack = connection.recv(MAX_RECV_SIZE)
-        if ack.decode() == DISCONNECT:
+        if ack.decode(COD) == DISCONNECT:
             self.disconnect(connection, addr)
         return
     
@@ -329,14 +448,14 @@ class StorageServer:
         :param file: The file should be add
         """
         try:
-            self.s.connect(self.dir_ip, self.dir_port)
+            self.s.connect((self.dir_ip, self.dir_port))
         except socket.error:
             self.dir_port += 1
-            self.s.connect(self.dir_ip, self.dir_port)
+            self.s.connect((self.dir_ip, self.dir_port))
             print('Error seen when connecting to directory server!')
             message = DIR_ERROR.encode()
             self.s.send(message)
-            update_stats()
+            update_stats(message)
         
         message = encode_update_message(filename, file).encode(COD)
         self.s.send(message)
@@ -364,9 +483,10 @@ class StorageServer:
         """
         self.s.close()
 
+
 class Clients:
     """
-    Clients used to downlaod or upload files:
+    Clients used to download or upload files:
         --- connect() requests to get one storage node address from directory server
         --- Get a file list (Both 2 types of servers)
         --- Add files to storage server
@@ -403,13 +523,13 @@ class Clients:
             print('Error seen when connecting to directory server!')
             message = DIR_ERROR.encode()
             self.s.send(message)
-            update_stats()
+            update_stats(message)
         else:
             print('Error seen when connecting to storage server!')
             self.build_connection(isDir=True)
             message = STORAGE_ERROR.encode()
             self.s.send(message)
-            update_stats()
+            update_stats(message)
         
     def build_connection(self, isDir):
         """
