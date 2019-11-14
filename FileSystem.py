@@ -163,7 +163,38 @@ class DirectoryServer:
         print("Starting a new storage node ...\n")
         self.launch_new_sn()
 
-    def newFile(self, file_name, file):
+    def newFile(self, data, connection):
+        data_body = ''
+        data = data[len(DATA_HEADER):]
+        is_tail = False
+        while True:
+            if not data:
+                # means the server has failed
+                print("-" * 21 + " Other side failed " + "-" * 21 + "\n")
+                break
+            message_contents = data
+
+            if data[-len(DATA_TAIL):] == DATA_TAIL:
+                message_contents = message_contents[:-len(DATA_TAIL)]
+                is_tail = True
+
+            if len(message_contents) == 0:
+                print("Empty data body!")
+            else:
+                data_body += message_contents
+
+            if is_tail:
+                message = DISCONNECT.encode()
+                connection.send(message)
+                update_stats(message)
+                break
+
+            # listen to following message
+            data = connection.recv(MAX_RECV_SIZE)
+            data = data.decode(COD)
+
+        file_name, file = decode_update_message(data_body)
+
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
         for location, status in self.storage_nodes:
@@ -263,6 +294,8 @@ class DirectoryServer:
             self.getLocation(connection, addr)
         elif data and data == STORAGE_ERROR:
             self.detect_storage_node_down(self.connect(), 1)
+        elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
+            self.newFile(connection, addr)
         else:
             print("Unrecognized message received by directory server: {}".format(data))
             self.disconnect(connection, addr)
