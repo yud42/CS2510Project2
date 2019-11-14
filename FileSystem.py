@@ -229,7 +229,7 @@ class StorageServer:
         """
         data = connection.recv(MAX_RECV_SIZE)
         data = data.decode(COD)
-        if data and data[0].lower() == DISCONNECT:
+        if data and data == DISCONNECT:
             self.disconnect(connection, addr)
             return
         elif data and data[:len(REQUEST_HEADER)] == REQUEST_HEADER:
@@ -287,7 +287,6 @@ class StorageServer:
         """
         data_body = ''
         while True:
-            is_head = False
             is_tail = False
             data = connection.recv(MAX_RECV_SIZE)
             data = data.decode(COD)
@@ -298,7 +297,6 @@ class StorageServer:
             message_contents = data
             if data[:len(DATA_HEADER)] == DATA_HEADER:
                 message_contents = data[len(DATA_HEADER):]
-                is_head = True
 
             if data[-len(DATA_TAIL):] == DATA_TAIL:
                 message_contents = message_contents[:-len(DATA_TAIL)]
