@@ -240,7 +240,8 @@ class StorageServer:
             self.get_file(data, connection, addr)
         else:
             self.disconnect(connection, addr)
-            return
+        
+        return
     
     def read_File(self, data, connection, addr):
         """
@@ -286,17 +287,14 @@ class StorageServer:
         :param addr: (ip address, port) of the system connected
         """
         data_body = ''
+        data = data[len(DATA_HEADER):]        
+        is_tail = False   
         while True:
-            is_tail = False
-            data = connection.recv(MAX_RECV_SIZE)
-            data = data.decode(COD)
             if not data:
                 # means the server has failed
                 print("-" * 21 + " Other side failed " + "-" * 21 + "\n")
                 break
             message_contents = data
-            if data[:len(DATA_HEADER)] == DATA_HEADER:
-                message_contents = data[len(DATA_HEADER):]
 
             if data[-len(DATA_TAIL):] == DATA_TAIL:
                 message_contents = message_contents[:-len(DATA_TAIL)]
@@ -312,6 +310,11 @@ class StorageServer:
                 connection.send(message)
                 update_stats(message)
                 break
+            
+            #listen to following message
+            data = connection.recv(MAX_RECV_SIZE)
+            data = data.decode(COD)
+            
         
         filename, file = decode_update_message(data_body)
         self.addFile(filename, file)
