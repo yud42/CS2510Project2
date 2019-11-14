@@ -308,7 +308,6 @@ class StorageServer:
                 data_body += message_contents
 
             if is_tail:
-                print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
                 message = DISCONNECT.encode()
                 connection.send(message)
                 update_stats(message)
@@ -317,7 +316,8 @@ class StorageServer:
         filename, file = decode_update_message(data_body)
         self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
-        write_data(message_contents.encode(), file_path, "wb")
+        write_data(file.encode(), file_path, "wb")
+        print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
         return True
     
     def addFile(self, filename, file):
@@ -510,7 +510,6 @@ class Clients:
                 data_body += message_contents
 
             if is_tail:
-                print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
                 message = DISCONNECT.encode()
                 self.s.send(message)
                 update_stats(message)
@@ -518,7 +517,8 @@ class Clients:
         
         file = data_body.decode()
         file_path = os.path.join(self.data_path, filename)
-        write_data(message_contents.encode(), file_path, "wb")
+        write_data(file.encode(), file_path, "wb")
+        print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
         return True
         
     def addFile(self, filename, file):
