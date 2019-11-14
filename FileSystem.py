@@ -317,7 +317,8 @@ class StorageServer:
             
         
         filename, file = decode_update_message(data_body)
-        self.addFile(filename, file)
+        if addr[0] != self.dir_ip and addr[1] != self.dir_port:
+            self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
         write_data(file.encode(), file_path, "wb")
         print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
