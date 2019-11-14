@@ -348,7 +348,7 @@ class StorageServer:
         """
         data = connection.recv(MAX_RECV_SIZE)
         data = data.decode(COD)
-        if data and data[0].lower() == DISCONNECT:
+        if data and data == DISCONNECT:
             self.disconnect(connection, addr)
             return
         elif data and data[:len(REQUEST_HEADER)] == REQUEST_HEADER:
@@ -359,7 +359,8 @@ class StorageServer:
             self.get_file(data, connection, addr)
         else:
             self.disconnect(connection, addr)
-            return
+        
+        return
     
     def read_File(self, data, connection, addr):
         """
@@ -405,19 +406,14 @@ class StorageServer:
         :param addr: (ip address, port) of the system connected
         """
         data_body = ''
+        data = data[len(DATA_HEADER):]        
+        is_tail = False   
         while True:
-            is_head = False
-            is_tail = False
-            data = connection.recv(MAX_RECV_SIZE)
-            data = data.decode(COD)
             if not data:
                 # means the server has failed
                 print("-" * 21 + " Other side failed " + "-" * 21 + "\n")
                 break
             message_contents = data
-            if data[:len(DATA_HEADER)] == DATA_HEADER:
-                message_contents = data[len(DATA_HEADER):]
-                is_head = True
 
             if data[-len(DATA_TAIL):] == DATA_TAIL:
                 message_contents = message_contents[:-len(DATA_TAIL)]
@@ -429,16 +425,22 @@ class StorageServer:
                 data_body += message_contents
 
             if is_tail:
-                print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
                 message = DISCONNECT.encode()
                 connection.send(message)
                 update_stats(message)
                 break
+            
+            #listen to following message
+            data = connection.recv(MAX_RECV_SIZE)
+            data = data.decode(COD)
+            
         
         filename, file = decode_update_message(data_body)
-        self.addFile(filename, file)
+        if addr[0] != self.dir_ip and addr[1] != self.dir_port:
+            self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
-        write_data(message_contents.encode(), file_path, "wb")
+        write_data(file.encode(), file_path, "wb")
+        print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
         return True
     
     def addFile(self, filename, file):
@@ -611,7 +613,6 @@ class Clients:
         
         data_body = ''
         while True:
-            is_head = False
             is_tail = False
             data = self.s.recv(MAX_RECV_SIZE)
             data = data.decode(COD)
@@ -622,7 +623,6 @@ class Clients:
             message_contents = data
             if data[:len(DATA_HEADER)] == DATA_HEADER:
                 message_contents = data[len(DATA_HEADER):]
-                is_head = True
 
             if data[-len(DATA_TAIL):] == DATA_TAIL:
                 message_contents = message_contents[:-len(DATA_TAIL)]
@@ -634,7 +634,6 @@ class Clients:
                 data_body += message_contents
 
             if is_tail:
-                print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
                 message = DISCONNECT.encode()
                 self.s.send(message)
                 update_stats(message)
@@ -642,7 +641,8 @@ class Clients:
         
         file = data_body.decode()
         file_path = os.path.join(self.data_path, filename)
-        write_data(message_contents.encode(), file_path, "wb")
+        write_data(file.encode(), file_path, "wb")
+        print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
         return True
         
     def addFile(self, filename, file):
