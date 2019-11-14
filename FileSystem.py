@@ -489,7 +489,6 @@ class Clients:
         
         data_body = ''
         while True:
-            is_head = False
             is_tail = False
             data = self.s.recv(MAX_RECV_SIZE)
             data = data.decode(COD)
@@ -500,7 +499,6 @@ class Clients:
             message_contents = data
             if data[:len(DATA_HEADER)] == DATA_HEADER:
                 message_contents = data[len(DATA_HEADER):]
-                is_head = True
 
             if data[-len(DATA_TAIL):] == DATA_TAIL:
                 message_contents = message_contents[:-len(DATA_TAIL)]
