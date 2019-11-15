@@ -385,7 +385,7 @@ class StorageServer:
             c_thread.daemon = True
             c_thread.start()
             self.connections.append(connection)
-            print("{}, connected\n".format(addr))
+            print("{0}, connected to port {1}\n".format(addr, self.port))
         
     def handler(self, connection, addr):
         """
