@@ -303,6 +303,7 @@ class DirectoryServer:
             self.detect_storage_node_down(self.connect(), 1)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
             self.newFile(data, connection, addr)
+
         else:
             print("Unrecognized message received by directory server: {}".format(data))
             self.disconnect(connection, addr)
@@ -349,9 +350,10 @@ class StorageServer:
         # define a socket
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        addr = StorageServerIP
+        self.addr = StorageServerIP
+
         self.port = port
-        self.s.bind((addr, port))
+        self.s.bind((self.addr, port))
         self.s.listen(MAX_QUEUE_SIZE)
         
         self.dir_ip = DirectoryServerIP
@@ -412,9 +414,12 @@ class StorageServer:
         :param addr: (ip address, port) of the system connected
         """
         filename = data[len(REQUEST_HEADER):]
+        print(filename)
         file_path = os.path.join(self.data_path, filename)
+        print(file_path)
         
         message = DATA_HEADER.encode(COD) + obtain(file_path) + DATA_TAIL.encode(COD)
+        print(message)
         connection.send(message)
         update_stats(message)
 
@@ -477,11 +482,11 @@ class StorageServer:
             data = data.decode(COD)
             
         
-        filename, file = decode_update_message(data_body)
-        if addr[0] != self.dir_ip and addr[1] != self.dir_port:
+        filename, file, address = decode_update_message(data_body)
+        if address[0] != self.dir_ip or address[1] != self.dir_port:
             self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
-        write_data(file.encode(), file_path, "wb")
+        write_data(file.encode(COD), file_path, "wb")
         print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
         return True
     
@@ -505,10 +510,11 @@ class StorageServer:
             so.send(message)
             update_stats(message)
         
-        message = encode_update_message(filename, file).encode(COD)
+        message = encode_update_message(filename, file, (self.addr, self.port)).encode(COD)
         so.send(message)
         update_stats(message)        
-    
+        so.shutdown(socket.SHUT_RDWR)
+        so.close()
     
     def disconnect(self, connection, addr):
         """
@@ -661,10 +667,10 @@ class Clients:
         """
         self.build_connection(isDir=False)
         
-        message = encode_request_message.encode(COD)
+        message = encode_request_message(filename).encode(COD)
         self.s.send(message)
         update_stats(message)
-        
+        print(message)
         data_body = ''
         while True:
             is_tail = False
@@ -708,8 +714,8 @@ class Clients:
         :param file: The file added
         """
         self.build_connection(isDir=False)
-        
-        message = encode_update_message(filename, file).encode(COD)
+        message = encode_update_message(filename, file, ('1','2')).encode(COD)
+
         self.s.send(message)
         update_stats(message)
         self.close()

@@ -29,14 +29,14 @@ def decode_list_message(list_message):
     return json.loads(list_message)
 
 
-def encode_update_message(file_name, file):
-    message_dict = {'file_name':file_name, 'file':file}
-    return FileSystem.DATA_HEADER + json.dumps(message_dict) + FileSystem.DATA_TAIL
+def encode_update_message(file_name, file, addr):
+    message_list = [file_name, file, addr]
+    return FileSystem.DATA_HEADER + json.dumps(message_list) + FileSystem.DATA_TAIL
 
 
 def decode_update_message(update_message):
-    message_dict = json.loads(update_message)
-    return message_dict['file_name'],message_dict['file']
+    message_list = json.loads(update_message)
+    return message_list[0],message_list[1],message_list[2]
 
 
 def encode_request_message(file_name):
@@ -53,7 +53,7 @@ def obtain(filename):
     :param filename: path to the data
     """
     try:
-        with open(filename,'rb') as f:
+        with open(filename,'rt') as f:
             return f.read()
     except:
         print("Something went wrong during obtaining file")
