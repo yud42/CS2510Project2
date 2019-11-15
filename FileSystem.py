@@ -23,9 +23,9 @@ from collections import defaultdict
 
 #server configs
 StorageServerPortBase = 5000
-StorageServerIP = ''
+StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
 DirectoryServerPortBase = 6000
-DirectoryServerIP = ''
+DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
 
 
 
@@ -113,8 +113,8 @@ class DirectoryServer:
         self.down_num = 0
         # the number of storage nodes have already been launched, by default is 3
         self.launch_num = 3
-        self.run = True
-        print("-" * 12 + "Directory Server {0:1} Running".format(address, port) + "-" * 21 + "\n")
+        self.start = True
+        print("-" * 12 + "Directory Server {0} : {1} Running".format(address, port) + "-" * 21 + "\n")
 
     def connect(self):
         """
@@ -275,6 +275,9 @@ class DirectoryServer:
             s1.close()
             s2.shutdown(socket.SHUT_RDWR)
             s2.close()
+        # change status to 1
+        index = self.storage_nodes.index(((StorageServerIP, new_port), 0))
+        self.storage_nodes[index] = ((StorageServerIP, new_port), 1)
 
     def handler(self, connection, addr):
         """
@@ -306,7 +309,7 @@ class DirectoryServer:
         This method is use to run the server
         This method creates a different thread for each connection
         """
-        while self.run:
+        while self.start:
             connection, addr = self.s.accept()
             # create a thread for a connection
             c_thread = threading.Thread(target=self.handler, args=(connection, addr))
@@ -315,7 +318,7 @@ class DirectoryServer:
             print("{0}, connected to directory server {1}\n".format(addr, self.port))
 
     def stop(self):
-        self.run = False
+        self.start = False
         print("Stop the directory server {0}".format(self.port))
 
     def disconnect(self, connection, addr):
@@ -353,6 +356,7 @@ class StorageServer:
         self.connections = []
                 
         self.switch = True
+        print("-" * 12 + "Storage Server {0} : {1} Running".format(addr, port) + "-" * 21 + "\n")
         
     def run(self):
         """
@@ -575,10 +579,10 @@ class Clients:
         """
         if isDir:
             try:
-                self.s.connect(self.dir_ip, self.dir_port)
+                self.s.connect((self.dir_ip, self.dir_port))
             except socket.error:
                 self.dir_port += 1
-                self.s.connect(self.dir_ip, self.dir_port)
+                self.s.connect((self.dir_ip, self.dir_port))
                 self.send_error(dirError=True)
         else:
             if self.locations == None:
@@ -586,7 +590,7 @@ class Clients:
             else:
                 try:
                     addr, port = self.locations
-                    self.s.connect(addr, port)
+                    self.s.connect((addr, port))
                 except socket.error:
                     self.send_error(dirError=False)
         
