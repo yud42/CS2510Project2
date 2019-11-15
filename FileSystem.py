@@ -254,7 +254,8 @@ class DirectoryServer:
     def copy_to_new_sn(self):
         new_port = StorageServerPortBase + self.launch_num
         print("Start copying files to the new storage node {}".format(new_port))
-        for file_name in self.file_list:
+        file_list = list(self.file_list)
+        for file_name in file_list:
             # set up socket for requesting files
             s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
