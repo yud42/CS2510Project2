@@ -23,9 +23,11 @@ from collections import defaultdict
 
 #server configs
 StorageServerPortBase = 5000
-StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
+#StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
+StorageServerIP = '127.0.0.1'
 DirectoryServerPortBase = 6000
-DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
+#DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
+DirectoryServerIP = '127.0.0.1'
 
 
 
@@ -349,7 +351,7 @@ class StorageServer:
         self.s.listen(MAX_QUEUE_SIZE)
         
         self.dir_ip = DirectoryServerIP
-        self.dir_port = DirectoryServerPortBase
+        self.dir_port = DirectoryServerPortBase + 1
         
         self.peers = []
         self.connections = []
@@ -559,6 +561,8 @@ class Clients:
         """
         if dirError:
             print('Clients: Error seen when connecting to directory server!')
+            self.dir_port += 1
+            self.s.connect((self.dir_ip, self.dir_port))
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
@@ -568,6 +572,8 @@ class Clients:
             message = STORAGE_ERROR.encode()
             self.s.send(message)
             update_stats(message)
+        self.close()
+        self.open_socket()
         
     def build_connection(self, isDir):
         """
@@ -579,9 +585,7 @@ class Clients:
         if isDir:
             try:
                 self.s.connect((self.dir_ip, self.dir_port))
-            except socket.error:
-                self.dir_port += 1
-                self.s.connect((self.dir_ip, self.dir_port))
+            except socket.error as e:
                 self.send_error(dirError=True)
         else:
             if self.locations == None:
@@ -593,6 +597,7 @@ class Clients:
                 except socket.error:
                     self.send_error(dirError=False)
         
+
     def connect(self):
         """
         This method is used to get the location of primary storage node from directory server
@@ -610,7 +615,9 @@ class Clients:
                 print("Got location of primary storage node: {0}\n".format(self.locations))
         except Exception:
             print("Failed to query file location: disconnected to the indexing server.")
-            
+        
+        self.close()
+        self.open_socket()
         return self.locations
       
     def get_FileList(self, isDir):
@@ -621,7 +628,6 @@ class Clients:
                          False---ask from storage server
         """
         self.build_connection(isDir)
-        
         message = GETLIST_HEADER.encode(COD)
         self.s.send(message)
         update_stats(message)
@@ -634,6 +640,9 @@ class Clients:
         except Exception:
             print("Failed to query file list: disconnected to the remote server.")
             
+        
+        self.close()
+        self.open_socket()
         return self.file_list
                 
     def readFile(self, filename):
@@ -679,6 +688,8 @@ class Clients:
         file_path = os.path.join(self.data_path, filename)
         write_data(file.encode(), file_path, "wb")
         print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
+        self.close()
+        self.open_socket()
         return True
         
     def addFile(self, filename, file):
@@ -692,6 +703,8 @@ class Clients:
         message = encode_update_message(filename, file).encode(COD)
         self.s.send(message)
         update_stats(message)
+        self.close()
+        self.open_socket()
         return True
 
     def close(self):
