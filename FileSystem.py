@@ -146,7 +146,6 @@ class DirectoryServer:
         message = encode_list_message(file_list).encode(COD)
         connection.send(message)
         update_stats(message)
-
         ack = connection.recv(MAX_RECV_SIZE)
         if ack.decode(COD) == DISCONNECT:
             self.disconnect(connection, addr)
@@ -493,7 +492,7 @@ class StorageServer:
         except socket.error:
             self.dir_port += 1
             self.s.connect((self.dir_ip, self.dir_port))
-            print('Error seen when connecting to directory server!')
+            print('Storage node: Error seen when connecting to directory server!')
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
@@ -561,14 +560,14 @@ class Clients:
                          False---Errors happened during connecting to storage server
         """
         if dirError:
-            print('Error seen when connecting to directory server!')
+            print('Clients: Error seen when connecting to directory server!')
             self.dir_port += 1
             self.build_connection(isDir=True)
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
         else:
-            print('Error seen when connecting to storage server!')
+            print('Clients: Error seen when connecting to storage server!')
             self.build_connection(isDir=True)
             message = STORAGE_ERROR.encode()
             self.s.send(message)
@@ -601,7 +600,7 @@ class Clients:
 
     def connect(self):
         """
-        This method is used to get the loaction of primary storage node from directory server
+        This method is used to get the location of primary storage node from directory server
         """
         self.build_connection(isDir=True)
         
