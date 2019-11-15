@@ -19,6 +19,7 @@ import os
 import sys
 from utils import *
 from collections import defaultdict
+import time
 
 
 #server configs
@@ -55,6 +56,8 @@ DISCONNECT = '#QUIT#'
 DIR_ERROR = '#DIRFAIL#'
 #ERROR from client indicate primary storage server down
 STORAGE_ERROR = '#STORAGEFAIL#'
+# Header of message, from directory server to primary storage server, for lauching new node
+LAUNCH_HEADER = "#start#"
 
 # Maximum Queue length
 MAX_QUEUE_SIZE = 5
@@ -160,9 +163,37 @@ class DirectoryServer:
         """
         self.down_num += 1
         self.storage_nodes.remove((location, status))
-        print("Storage node {} is down, remove it from storage list\n")
+        print("Storage node {} is down, remove it from storage list\n".format(location))
         print("Starting a new storage node ...\n")
-        self.launch_new_sn()
+        self.launch_num += 1
+        # send message to primary storage node for launching a new node
+        msg = LAUNCH_HEADER + str(self.launch_num)
+        msg = msg.encode(COD)
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        while True:
+            # request files from the primary storage node
+            location = self.connect()
+            try:
+                s.connect(location)
+                break
+            except socket.error:
+                # the primary storage node is down
+                self.detect_storage_node_down(location, 1)
+
+        s.send(msg)
+        update_stats(msg)
+
+        msg = s.recv(MAX_RECV_SIZE)
+        if msg.decode(COD) == DISCONNECT:
+            pass
+        else:
+            print("Unrecognized message received by directory server: {}".format(msg))
+#        s.shutdown(socket.SHUT_RDWR)
+        s.close()
+        new_port = StorageServerPortBase + self.launch_num
+        self.storage_nodes.append(((StorageServerIP, new_port), 0))
+        self.copy_to_new_sn()
 
     def newFile(self, data, connection, addr):
         data_body = ''
@@ -220,19 +251,9 @@ class DirectoryServer:
             print("Directory Server disconnects from storage node {0}\n".format(location))
         print("Synchronized file {0} in the storage system\n".format(file_name))
 
-    def launch_new_sn(self):
-        """
-        Launch a new storage node since an old one is down. Copy all the files into the new one.
-        :return:
-        """
-        self.launch_num += 1
+    def copy_to_new_sn(self):
         new_port = StorageServerPortBase + self.launch_num
-        # launch new storage server
-        new_data_path = "data_" + str(self.launch_num)
-        new_storage_server = StorageServer(data_path=new_data_path, port=new_port)
-        new_storage_server.run()
-        self.storage_nodes.append(((StorageServerIP, new_port), 0))
-        print("New storage node ({0}:{1}) is started. Copying files to the new storage node ...\n".format(new_data_path, new_port))
+        print("Start copying files to the new storage node {}".format(new_port))
         for file_name in self.file_list:
             # set up socket for requesting files
             s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -325,6 +346,7 @@ class DirectoryServer:
 
     def stop(self):
         self.start = False
+#        self.s.shutdown(socket.SHUT_RDWR)
         self.s.close()
         print("Stop the directory server {0}".format(self.port))
 
@@ -406,6 +428,8 @@ class StorageServer:
             self.read_List(data, connection, addr)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
             self.get_file(data, connection, addr)
+        elif data and data[:len(LAUNCH_HEADER)] == LAUNCH_HEADER:
+            self.launch_new_sn(data, connection, addr)
         else:
             self.disconnect(connection, addr)
         
@@ -536,6 +560,7 @@ class StorageServer:
     
     def stop(self):
         self.switch = False
+#        self.s.shutdown(socket.SHUT_RDWR)
         self.s.close()
         print("Stop the storage node {0}".format(self.port))
         
@@ -544,6 +569,30 @@ class StorageServer:
         close socket
         """
         self.s.close()
+
+    def launch_new_sn(self, data, connection, addr):
+        """
+        Launch a new storage node since an old one is down. Copy all the files into the new one.
+        :return:
+        """
+        launch_num = data[len(LAUNCH_HEADER):]
+        new_port = StorageServerPortBase + int(launch_num)
+        # launch new storage server
+        new_data_path = "data/data_" + str(launch_num)
+        try:
+            os.mkdir(new_data_path)
+        except OSError:
+            pass
+        new_storage_server = StorageServer(data_path=new_data_path, port=new_port)
+        print("New storage node ({0}:{1}) is started.\n".format(new_data_path, new_port))
+
+        message = DISCONNECT.encode(COD)
+        connection.send(message)
+        update_stats(message)
+        self.disconnect(connection, addr)
+
+        new_storage_server.run()
+        return
 
 
 class Clients:
