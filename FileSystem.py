@@ -563,7 +563,7 @@ class Clients:
         if dirError:
             print('Error seen when connecting to directory server!')
             self.dir_port += 1
-            self.s.connect((self.dir_ip, self.dir_port))
+            self.build_connection(isDir=True)
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
@@ -573,6 +573,8 @@ class Clients:
             message = STORAGE_ERROR.encode()
             self.s.send(message)
             update_stats(message)
+        self.close()
+        self.open_socket()
         
     def build_connection(self, isDir):
         """

@@ -22,7 +22,7 @@ def decode_location_message(location_message):
 
 
 def encode_list_message(file_list):
-    return FileSystem.LIST_HEADER + json.dumps(file_list)
+    return FileSystem.LIST_HEADER + json.dumps(list(file_list))
 
 
 def decode_list_message(list_message):
