@@ -144,7 +144,6 @@ class DirectoryServer:
         message = encode_list_message(file_list).encode(COD)
         connection.send(message)
         update_stats(message)
-
         ack = connection.recv(MAX_RECV_SIZE)
         if ack.decode(COD) == DISCONNECT:
             self.disconnect(connection, addr)
@@ -291,7 +290,7 @@ class DirectoryServer:
         if data and data == DISCONNECT:
             self.disconnect(connection, addr)
             return
-        elif data and data[:len(LIST_HEADER)] == LIST_HEADER:
+        elif data and data[:len(GETLIST_HEADER)] == GETLIST_HEADER:
             self.getFileList(connection, addr)
         elif data and data[:len(QUERY_HEADER)] == QUERY_HEADER:
             self.getLocation(connection, addr)
@@ -491,7 +490,7 @@ class StorageServer:
         except socket.error:
             self.dir_port += 1
             self.s.connect((self.dir_ip, self.dir_port))
-            print('Error seen when connecting to directory server!')
+            print('Storage node: Error seen when connecting to directory server!')
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
@@ -546,7 +545,7 @@ class Clients:
         self.port = port  # server port
         
         self.dir_ip = DirectoryServerIP
-        self.dir_port = DirectoryServerPortBase
+        self.dir_port = DirectoryServerPortBase + 1
         
         self.file_list = None
         
@@ -559,12 +558,12 @@ class Clients:
                          False---Errors happened during connecting to storage server
         """
         if dirError:
-            print('Error seen when connecting to directory server!')
+            print('Clients: Error seen when connecting to directory server!')
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
         else:
-            print('Error seen when connecting to storage server!')
+            print('Clients: Error seen when connecting to storage server!')
             self.build_connection(isDir=True)
             message = STORAGE_ERROR.encode()
             self.s.send(message)
@@ -596,7 +595,7 @@ class Clients:
         
     def connect(self):
         """
-        This method is used to get the loaction of primary storage node from directory server
+        This method is used to get the location of primary storage node from directory server
         """
         self.build_connection(isDir=True)
         

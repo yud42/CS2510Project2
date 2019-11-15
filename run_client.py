@@ -16,8 +16,9 @@ if __name__ == "__main__":
     else:
         print("File list: ")
         print(file_list)
-    filename = "data/clien_1/6sucess.txt"
+    filename = "data/client_1/6sucess.txt"
     file = utils.obtain(filename)
+    client.connect()
     client.addFile(filename, file)
     time.sleep(3)
     file_list = client.get_FileList(isDir=True)
