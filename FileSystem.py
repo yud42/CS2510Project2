@@ -489,17 +489,21 @@ class StorageServer:
         :param file: The file should be add
         """
         try:
-            self.s.connect((self.dir_ip, self.dir_port))
+            so = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            so.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            so.connect((self.dir_ip, self.dir_port))  
         except socket.error:
             self.dir_port += 1
-            self.s.connect((self.dir_ip, self.dir_port))
+            so = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            so.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            so.connect((self.dir_ip, self.dir_port))
             print('Storage node: Error seen when connecting to directory server!')
             message = DIR_ERROR.encode()
-            self.s.send(message)
+            so.send(message)
             update_stats(message)
         
         message = encode_update_message(filename, file).encode(COD)
-        self.s.send(message)
+        so.send(message)
         update_stats(message)        
     
     
@@ -703,6 +707,7 @@ class Clients:
         self.build_connection(isDir=False)
         
         message = encode_update_message(filename, file).encode(COD)
+        print(message)
         self.s.send(message)
         update_stats(message)
         self.close()
