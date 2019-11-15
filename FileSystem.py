@@ -164,7 +164,7 @@ class DirectoryServer:
         print("Starting a new storage node ...\n")
         self.launch_new_sn()
 
-    def newFile(self, data, connection):
+    def newFile(self, data, connection, addr):
         data_body = ''
         data = data[len(DATA_HEADER):]
         is_tail = False
@@ -194,11 +194,13 @@ class DirectoryServer:
             data = connection.recv(MAX_RECV_SIZE)
             data = data.decode(COD)
 
-        file_name, file = decode_update_message(data_body)
+        file_name, file, location_receive = decode_update_message(data_body)
 
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
         for location, status in self.storage_nodes:
+            if location == location_receive:
+                continue
             print("Directory Server is connecting to storage node {0}\n".format(location))
             # set up socket
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -207,7 +209,7 @@ class DirectoryServer:
             try:
                 s.connect(location)
                 print("Directory Server is connected to storage node {0}\n".format(location))
-                msg = encode_update_message(file_name, file).encode(COD)
+                msg = encode_update_message(file_name, file, (self.address, self.port)).encode(COD)
                 s.send(msg)
                 update_stats(msg)
             except socket.error:
@@ -215,6 +217,7 @@ class DirectoryServer:
             s.shutdown(socket.SHUT_RDWR)
             s.close()
             print("Directory Server disconnects from storage node {0}\n".format(location))
+        print("Synchronized file {0} in the storage system\n".format(file_name))
 
     def launch_new_sn(self):
         """
@@ -299,7 +302,8 @@ class DirectoryServer:
         elif data and data == STORAGE_ERROR:
             self.detect_storage_node_down(self.connect(), 1)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
-            self.newFile(data, connection)
+            self.newFile(data, connection, addr)
+
         else:
             print("Unrecognized message received by directory server: {}".format(data))
             self.disconnect(connection, addr)
@@ -347,8 +351,10 @@ class StorageServer:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.addr = StorageServerIP
+
         self.port = port
         self.s.bind((self.addr, self.port))
+
         self.s.listen(MAX_QUEUE_SIZE)
         
         self.dir_ip = DirectoryServerIP
@@ -358,7 +364,7 @@ class StorageServer:
         self.connections = []
                 
         self.switch = True
-        print("-" * 12 + "Storage Server {0} : {1} Running".format(addr, port) + "-" * 21 + "\n")
+        print("-" * 12 + "Storage Server {0} : {1} Running".format(self.addr, port) + "-" * 21 + "\n")
         
     def run(self):
         """
@@ -525,6 +531,7 @@ class StorageServer:
     
     def stop(self):
         self.switch = False
+        print("Stop the storage node {0}".format(self.port))
         
     def close(self):
         """
@@ -693,10 +700,10 @@ class Clients:
                 update_stats(message)
                 break
         
-        file = data_body.decode()
+        file = data_body.decode(COD)
         file_path = os.path.join(self.data_path, filename)
         write_data(file.encode(COD), file_path, "wb")
-        print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
+        print("-"*11 + "Download Done for <" + filename + "> to " + self.data_path + "-"*11 + "\n")
         self.close()
         self.open_socket()
         return True
@@ -708,8 +715,8 @@ class Clients:
         :param file: The file added
         """
         self.build_connection(isDir=False)
-        
         message = encode_update_message(filename, file, ('1','2')).encode(COD)
+
         self.s.send(message)
         update_stats(message)
         self.close()
