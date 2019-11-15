@@ -199,6 +199,7 @@ class DirectoryServer:
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
         for location, status in self.storage_nodes:
+            location_receive = (location_receive[0], location_receive[1])
             if location == location_receive:
                 continue
             print("Directory Server is connecting to storage node {0}\n".format(location))
@@ -364,7 +365,9 @@ class StorageServer:
         self.connections = []
                 
         self.switch = True
-        print("-" * 12 + "Storage Server {0} : {1} Running".format(self.addr, port) + "-" * 21 + "\n")
+
+        print("-" * 12 + "Storage Server {0} : {1} Running".format(self.addr, self.port) + "-" * 21 + "\n")
+
         
     def run(self):
         """
@@ -398,7 +401,7 @@ class StorageServer:
             return
         elif data and data[:len(REQUEST_HEADER)] == REQUEST_HEADER:
             self.read_File(data, connection, addr)
-        elif data and data[:len(LIST_HEADER)] == LIST_HEADER:
+        elif data and data[:len(GETLIST_HEADER)] == GETLIST_HEADER:
             self.read_List(data, connection, addr)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
             self.get_file(data, connection, addr)
@@ -419,7 +422,7 @@ class StorageServer:
         file_path = os.path.join(self.data_path, filename)
         print(file_path)
         
-        message = DATA_HEADER.encode(COD) + obtain(file_path) + DATA_TAIL.encode(COD)
+        message = (DATA_HEADER + obtain(file_path) + DATA_TAIL).encode(COD)
         print(message)
         connection.send(message)
         update_stats(message)
@@ -437,7 +440,7 @@ class StorageServer:
         :param addr: (ip address, port) of the system connected
         """
         file_list = get_list(self.data_path)
-        message = encode_list_message(file_list)
+        message = encode_list_message(file_list).encode(COD)
         connection.send(message)
         update_stats(message)
         
@@ -484,6 +487,7 @@ class StorageServer:
             
         
         filename, file, address = decode_update_message(data_body)
+        print(address)
         if address[0] != self.dir_ip or address[1] != self.dir_port:
             self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
@@ -672,6 +676,7 @@ class Clients:
         self.s.send(message)
         update_stats(message)
         print(message)
+        print(self.s.getpeername())
         data_body = ''
         while True:
             is_tail = False
@@ -700,13 +705,14 @@ class Clients:
                 update_stats(message)
                 break
         
-        file = data_body.decode(COD)
+        file = data_body
         file_path = os.path.join(self.data_path, filename)
         write_data(file.encode(COD), file_path, "wb")
         print("-"*11 + "Download Done for <" + filename + "> to " + self.data_path + "-"*11 + "\n")
-        self.close()
-        self.open_socket()
-        return True
+
+#        self.close()
+#        self.open_socket()
+        return file
         
     def addFile(self, filename, file):
         """
@@ -727,6 +733,7 @@ class Clients:
         """
         close socket
         """
+
         self.s.shutdown(socket.SHUT_RDWR)
         self.s.close()
     
