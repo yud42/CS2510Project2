@@ -199,6 +199,7 @@ class DirectoryServer:
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
         for location, status in self.storage_nodes:
+            location_receive = (location_receive[0].encode(COD), location_receive[1])
             if location == location_receive:
                 continue
             print("Directory Server is connecting to storage node {0}\n".format(location))
@@ -363,7 +364,7 @@ class StorageServer:
         self.connections = []
                 
         self.switch = True
-        print("-" * 12 + "Storage Server {0} : {1} Running".format(addr, port) + "-" * 21 + "\n")
+        print("-" * 12 + "Storage Server {0} : {1} Running".format(self.addr, self.port) + "-" * 21 + "\n")
         
     def run(self):
         """
