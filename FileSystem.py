@@ -164,7 +164,7 @@ class DirectoryServer:
         print("Starting a new storage node ...\n")
         self.launch_new_sn()
 
-    def newFile(self, data, connection):
+    def newFile(self, data, connection, addr):
         data_body = ''
         data = data[len(DATA_HEADER):]
         is_tail = False
@@ -194,11 +194,13 @@ class DirectoryServer:
             data = connection.recv(MAX_RECV_SIZE)
             data = data.decode(COD)
 
-        file_name, file = decode_update_message(data_body)
+        file_name, file, location_receive = decode_update_message(data_body)
 
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
         for location, status in self.storage_nodes:
+            if location == location_receive:
+                continue
             print("Directory Server is connecting to storage node {0}\n".format(location))
             # set up socket
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -207,7 +209,7 @@ class DirectoryServer:
             try:
                 s.connect(location)
                 print("Directory Server is connected to storage node {0}\n".format(location))
-                msg = encode_update_message(file_name, file).encode(COD)
+                msg = encode_update_message(file_name, file, (self.address, self.port)).encode(COD)
                 s.send(msg)
                 update_stats(msg)
             except socket.error:
@@ -215,6 +217,7 @@ class DirectoryServer:
             s.shutdown(socket.SHUT_RDWR)
             s.close()
             print("Directory Server disconnects from storage node {0}\n".format(location))
+        print("Synchronized file {0} in the storage system\n".format(file_name))
 
     def launch_new_sn(self):
         """
@@ -299,7 +302,7 @@ class DirectoryServer:
         elif data and data == STORAGE_ERROR:
             self.detect_storage_node_down(self.connect(), 1)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
-            self.newFile(connection, addr)
+            self.newFile(data, connection, addr)
         else:
             print("Unrecognized message received by directory server: {}".format(data))
             self.disconnect(connection, addr)
@@ -690,10 +693,10 @@ class Clients:
                 update_stats(message)
                 break
         
-        file = data_body.decode()
+        file = data_body.decode(COD)
         file_path = os.path.join(self.data_path, filename)
-        write_data(file.encode(), file_path, "wb")
-        print("-"*21 + "Download Done for <" + filename + "> to " + self.data_path + "-"*21 + "\n")
+        write_data(file.encode(COD), file_path, "wb")
+        print("-"*11 + "Download Done for <" + filename + "> to " + self.data_path + "-"*11 + "\n")
         self.close()
         self.open_socket()
         return True
@@ -707,7 +710,6 @@ class Clients:
         self.build_connection(isDir=False)
         
         message = encode_update_message(filename, file).encode(COD)
-        print(message)
         self.s.send(message)
         update_stats(message)
         self.close()
