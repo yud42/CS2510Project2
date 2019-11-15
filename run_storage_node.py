@@ -5,11 +5,12 @@ This script is for running the storage nodes
 """
 import FileSystem as fs
 import threading
+import time
+import socket
 
 
 def run_ss(ss):
     ss.run()
-
 
 
 if __name__ == "__main__":
@@ -33,17 +34,20 @@ if __name__ == "__main__":
         ss = fs.StorageServer(data_path, port)
         servers.append(ss)
 
+    threads = []
+    for ss in servers:
+        i_thread = threading.Thread(target=run_ss, args=(ss,))
+        i_thread.daemon = True
+        i_thread.start()
+        threads.append(i_thread)
+
+    time.sleep(5)
+
+    s = servers[2]
+    s.stop()
+
     try:
-        threads = []
-        for ss in servers:
-            i_thread = threading.Thread(target=run_ss, args=(ss,))
-            i_thread.daemon = True
-            i_thread.start()
-            threads.append(i_thread)
-
-        for t in threads:
-            t.join()
-
+        time.sleep(1000)
     except KeyboardInterrupt:
         for ss in servers:
             ss.stop()
