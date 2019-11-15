@@ -23,11 +23,11 @@ from collections import defaultdict
 
 #server configs
 StorageServerPortBase = 5000
-#StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
-StorageServerIP = '127.0.0.1'
+StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
+#StorageServerIP = '127.0.0.1'
 DirectoryServerPortBase = 6000
-#DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
-DirectoryServerIP = '127.0.0.1'
+DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
+#DirectoryServerIP = '127.0.0.1'
 
 
 
@@ -347,6 +347,7 @@ class StorageServer:
         self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         addr = StorageServerIP
+        self.port = port
         self.s.bind((addr, port))
         self.s.listen(MAX_QUEUE_SIZE)
         
@@ -516,6 +517,7 @@ class StorageServer:
     
     def stop(self):
         self.switch = False
+        print("Stop the storage node {0}".format(self.port))
         
     def close(self):
         """
@@ -562,7 +564,7 @@ class Clients:
         if dirError:
             print('Clients: Error seen when connecting to directory server!')
             self.dir_port += 1
-            self.build_connection(isDir=True)
+            self.s.connect((self.dir_ip, self.dir_port))
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
