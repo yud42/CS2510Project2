@@ -348,7 +348,7 @@ class StorageServer:
         self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.addr = StorageServerIP
         self.port = port
-        self.s.bind((addr, port))
+        self.s.bind((self.addr, self.port))
         self.s.listen(MAX_QUEUE_SIZE)
         
         self.dir_ip = DirectoryServerIP
