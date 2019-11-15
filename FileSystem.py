@@ -23,9 +23,10 @@ import time
 
 
 #server configs
-StorageServerPortBase = 5000
+StorageServerPortBase = 7000
 #StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
 StorageServerIP = '127.0.0.1'
+
 DirectoryServerPortBase = 6000
 #DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
 DirectoryServerIP = '127.0.0.1'
@@ -188,8 +189,11 @@ class DirectoryServer:
         if msg.decode(COD) == DISCONNECT:
             pass
         else:
+
             print("Unrecognized message received by directory server: {}".format(msg))
 #        s.shutdown(socket.SHUT_RDWR)
+
+
         s.close()
         new_port = StorageServerPortBase + self.launch_num
         self.storage_nodes.append(((StorageServerIP, new_port), 0))
@@ -296,7 +300,7 @@ class DirectoryServer:
             if msg.decode(COD) == DISCONNECT:
                 pass
             else:
-                print("Unrecognized message received by directory server: {}".format(msg))
+                print("299 Unrecognized message received by directory server: {}".format(msg))
             s1.shutdown(socket.SHUT_RDWR)
             s1.close()
             s2.shutdown(socket.SHUT_RDWR)
@@ -327,7 +331,7 @@ class DirectoryServer:
             self.newFile(data, connection, addr)
 
         else:
-            print("Unrecognized message received by directory server: {}".format(data))
+            print("330 Unrecognized message received by directory server: {}".format(data))
             self.disconnect(connection, addr)
             return
 
@@ -346,7 +350,6 @@ class DirectoryServer:
 
     def stop(self):
         self.start = False
-#        self.s.shutdown(socket.SHUT_RDWR)
         self.s.close()
         print("Stop the directory server {0}".format(self.port))
 
@@ -431,6 +434,7 @@ class StorageServer:
         elif data and data[:len(LAUNCH_HEADER)] == LAUNCH_HEADER:
             self.launch_new_sn(data, connection, addr)
         else:
+            print("What is the thing? : {0}".format(data))
             self.disconnect(connection, addr)
         
         return
@@ -443,12 +447,8 @@ class StorageServer:
         :param addr: (ip address, port) of the system connected
         """
         filename = data[len(REQUEST_HEADER):]
-        print(filename)
         file_path = os.path.join(self.data_path, filename)
-        print(file_path)
-        
         message = (DATA_HEADER + obtain(file_path) + DATA_TAIL).encode(COD)
-        print(message)
         connection.send(message)
         update_stats(message)
 
@@ -560,7 +560,6 @@ class StorageServer:
     
     def stop(self):
         self.switch = False
-#        self.s.shutdown(socket.SHUT_RDWR)
         self.s.close()
         print("Stop the storage node {0}".format(self.port))
         
@@ -575,8 +574,9 @@ class StorageServer:
         Launch a new storage node since an old one is down. Copy all the files into the new one.
         :return:
         """
-        launch_num = data[len(LAUNCH_HEADER):]
-        new_port = StorageServerPortBase + int(launch_num)
+
+        launch_num = int(data[len(LAUNCH_HEADER):])
+        new_port = StorageServerPortBase + launch_num
         # launch new storage server
         new_data_path = "data/data_" + str(launch_num)
         try:
@@ -732,8 +732,7 @@ class Clients:
         message = encode_request_message(filename).encode(COD)
         self.s.send(message)
         update_stats(message)
-        print(message)
-        print(self.s.getpeername())
+        #print(self.s.getpeername())
         data_body = ''
         while True:
             is_tail = False

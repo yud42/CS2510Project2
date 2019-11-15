@@ -34,6 +34,8 @@ if __name__ == "__main__":
         file = utils.obtain(filename_full)
         client.connect()
         client.addFile(filename, file)
+    file_list = client.get_FileList(isDir=True)
+    print("File list: {}".format(file_list))
 
     try:
         f = client.readFile("6sucess.txt")
