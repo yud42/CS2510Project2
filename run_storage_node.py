@@ -41,7 +41,7 @@ if __name__ == "__main__":
         i_thread.start()
         threads.append(i_thread)
 
-    time.sleep(5)
+    time.sleep(1)
 
     s = servers[2]
     s.stop()
