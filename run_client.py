@@ -19,17 +19,15 @@ if __name__ == "__main__":
     filename = "data/client_1/6sucess.txt"
     file = utils.obtain(filename)
     client.connect()
-<<<<<<< HEAD
-    print(client.locations)
+    
     filename_s = "6sucess.txt"
     client.addFile(filename_s, file)
-=======
-    client.addFile("6sucess.txt", file)
->>>>>>> e35b6e9c872ce25d99e0e0fbe0945d5d3b9ffb80
     time.sleep(3)
     file_list = client.get_FileList(isDir=True)
     print("File list: {}".format(file_list))
     file_list = client.get_FileList(isDir=False)
     print("File list: {}".format(file_list))
+    time.sleep(9)
+    client.connect()
     file = client.readFile(filename_s)
     print(file)

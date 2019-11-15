@@ -5,7 +5,7 @@ This script is for running the storage nodes
 """
 import FileSystem as fs
 import threading
-
+import time
 
 def run_ss(ss):
     ss.run()
@@ -41,6 +41,10 @@ if __name__ == "__main__":
             i_thread.start()
             threads.append(i_thread)
 
+#        for ss in servers:
+#            time.sleep(3)
+#            ss.stop()
+#            
         for t in threads:
             t.join()
 

@@ -325,6 +325,7 @@ class DirectoryServer:
 
     def stop(self):
         self.start = False
+        self.s.close()
         print("Stop the directory server {0}".format(self.port))
 
     def disconnect(self, connection, addr):
@@ -377,7 +378,6 @@ class StorageServer:
         self.switch = True
         while self.switch:
             connection, addr = self.s.accept()
-    
             # append to the list of peers 
             self.peers.append(addr)
             # create a thread for a connection
@@ -386,6 +386,7 @@ class StorageServer:
             c_thread.start()
             self.connections.append(connection)
             print("{0}, connected to port {1}\n".format(addr, self.port))
+            
         
     def handler(self, connection, addr):
         """
@@ -535,6 +536,7 @@ class StorageServer:
     
     def stop(self):
         self.switch = False
+        self.s.close()
         print("Stop the storage node {0}".format(self.port))
         
     def close(self):
@@ -582,12 +584,14 @@ class Clients:
         if dirError:
             print('Clients: Error seen when connecting to directory server!')
             self.dir_port += 1
-            self.s.connect((self.dir_ip, self.dir_port))
+            self.open_socket()
+            self.build_connection(isDir=True)
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
         else:
             print('Clients: Error seen when connecting to storage server!')
+            self.open_socket()
             self.build_connection(isDir=True)
             message = STORAGE_ERROR.encode()
             self.s.send(message)
@@ -604,17 +608,21 @@ class Clients:
         """
         if isDir:
             try:
+                print("Connecting to directory server: {}".format((self.dir_ip, self.dir_port)))
                 self.s.connect((self.dir_ip, self.dir_port))
             except socket.error as e:
+                print(e)
                 self.send_error(dirError=True)
         else:
             if self.locations == None:
                 print("No storage node known!")
             else:
                 try:
+                    print("Connecting to storage node: {}".format(self.locations))
                     addr, port = self.locations
                     self.s.connect((addr, port))
-                except socket.error:
+                except socket.error as e:
+                    print(e)
                     self.send_error(dirError=False)
         
 
