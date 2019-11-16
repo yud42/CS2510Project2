@@ -40,7 +40,7 @@ if __name__ == "__main__":
         i_thread.start()
         threads.append(i_thread)
 
-    time.sleep(1)
+    time.sleep(3)
 
     s = servers[0]
     s.stop()

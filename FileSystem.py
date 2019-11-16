@@ -250,7 +250,6 @@ class DirectoryServer:
                 update_stats(msg)
             except socket.error:
                 self.detect_storage_node_down(location, status)
-            s.shutdown(socket.SHUT_RDWR)
             s.close()
             print("Directory Server disconnects from storage node {0}\n".format(location))
         print("Synchronized file {0} in the storage system\n".format(file_name))
