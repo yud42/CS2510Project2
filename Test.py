@@ -29,7 +29,7 @@ def launch_client(response_record, data_path, M):
     fl = utils.get_file_list(data_path)
     print(fl)
     #ADDFILE TEST: add local files to file system
-    rn = random.randint(0,len(fl))
+    rn = random.randint(0,len(fl)-1)
     filename = fl[rn]
     print("Client on {0} adding file: {1}".format(data_path, filename))
     path = data_path + filename
@@ -45,8 +45,9 @@ def launch_client(response_record, data_path, M):
     
 
     
-    tasks = [filename not in fl for filename in file_list_dir]
-    rn = random.randint(0,len(tasks))
+#    tasks = [filename not in fl for filename in file_list_dir]
+    tasks = file_list_dir
+    rn = random.randint(0,len(tasks)-1)
     task = tasks[rn]
         
     print("Client on {0} downloading: {1}".format(data_path, task))
@@ -95,11 +96,11 @@ if __name__ == "__main__":
     response_record = defaultdict(list)
             
     response_record = defaultdict(list)
-    response_record["data/client_1"] = [0,0]
+    response_record["data/client_1/"] = [0,0]
     fs.reset_stats()
     
     
-    client_threads = run_client(response_record, "data/client_1", F, M, N)
+    client_threads = run_client(response_record, "data/client_1/", F, M, N)
     
     for t in client_threads:
         t.join()
@@ -108,8 +109,8 @@ if __name__ == "__main__":
     
     fn='stats_response_time.csv'
 
-    accu,count = response_record["data/client_1"]
-    print("Average respond time in {0} is {1:4f}".format("data/client_1",accu/count))
+    accu,count = response_record["data/client_1/"]
+    print("Average respond time in {0} is {1:4f}".format("data/client_1/",accu/count))
         
     
     msg_count,bytes_count = fs.get_stats()

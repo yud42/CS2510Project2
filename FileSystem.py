@@ -125,7 +125,6 @@ class DirectoryServer:
         self.start = True
         self.primary = False
         print("-" * 12 + "Directory Server {0} : {1} Running".format(address, port) + "-" * 21 + "\n")
-        print("Storage nodes: {}".format(self.storage_nodes))
 
     def backup_storage_nodes(self):
         # send storage_nodes message to backup directory server
@@ -185,19 +184,19 @@ class DirectoryServer:
     def update_storage_nodes(self, data, connection, addr):
         data = data[len(BP_STORAGE_HEADER):]
         self.storage_nodes = decode_bp_sn_message(data)
-        print("updated storage nodes: {}".format(self.storage_nodes))
+        print("updated storage nodes: {}\n".format(self.storage_nodes))
         self.disconnect(connection, addr)
 
     def update_file_list(self, data, connection, addr):
         data = data[len(BP_FL_HEADER):]
         self.file_list = decode_bp_fl_message(data)
-        print("updated file_list: {}".format(self.file_list))
+        print("updated file_list: {}\n".format(self.file_list))
         self.disconnect(connection, addr)
 
     def update_launch_num(self, data, connection, addr):
         data = data[len(BP_LN_HEADER):]
         self.launch_num = int(data)
-        print("updated launch num: {}".format(self.launch_num))
+        print("updated launch num: {}\n".format(self.launch_num))
         self.disconnect(connection, addr)
 
     def connect(self):
@@ -240,28 +239,26 @@ class DirectoryServer:
          :param status: the status of the failed storage node
         :return:
         """
-        if location and status:
+        if location is not None and status is not None:
             self.storage_nodes.remove((location, status))
             print("Storage node {} is down, remove it from storage list\n".format(location))
             self.backup_storage_nodes()
-            print("Updated storage node info to the backup server.")
         print("Starting a new storage node ...\n")
         self.launch_num += 1
         self.backup_launch_num()
-        print("Updated launch num info to the backup server.")
         # send message to primary storage node for launching a new node
         msg = LAUNCH_HEADER + str(self.launch_num)
         msg = msg.encode(COD)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         while True:
-            # request files from the primary storage node
             location = self.connect()
             try:
                 s.connect(location)
                 break
             except socket.error:
                 # the primary storage node is down
+                print("261 Error!!!")
                 self.detect_storage_node_down(location, 1)
 
         s.send(msg)
@@ -277,7 +274,6 @@ class DirectoryServer:
         new_port = StorageServerPortBase + self.launch_num
         self.storage_nodes.append(((StorageServerIP, new_port), 0))
         self.backup_storage_nodes()
-        print("Updated storage node info to the backup server.")
         self.copy_to_new_sn(new_port)
 
     def launch_bp_directory_server(self):
@@ -299,6 +295,26 @@ class DirectoryServer:
         i_thread.start()
 
     def newFile(self, data, connection, addr):
+
+        def check_diff(old_list, current_list):
+            """
+            Check if every element in current list exist in old list.
+            :param old_list:
+            :param current_list:
+            :return: False the first one of the left elements
+            """
+            left_elements = []
+            for t in current_list:
+                if t in old_list:
+                    pass
+                else:
+                    left_elements.append(t)
+
+            if left_elements:
+                return left_elements[0]
+            else:
+                return False
+
         data_body = ''
         data = data[len(DATA_HEADER):]
         is_tail = False
@@ -333,27 +349,34 @@ class DirectoryServer:
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
         self.backup_file_list()
-        print("Updated file list info to the backup server.")
-        for location, status in self.storage_nodes:
+        storage_node_done = []
+        element = check_diff(storage_node_done, self.storage_nodes)
+        while element:
+            location, status = element
             #print("storage nodes: {}".format(self.storage_nodes))
             location_receive = (location_receive[0], location_receive[1])
             if location == location_receive:
-                continue
-            print("Directory Server is connecting to storage node {0}\n".format(location))
-            # set up socket
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # allow python to use recently closed socket
-            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                s.connect(location)
-                print("Directory Server is connected to storage node {0}\n".format(location))
-                msg = encode_update_message(file_name, file, (self.address, self.port)).encode(COD)
-                s.send(msg)
-                update_stats(msg)
-            except socket.error:
-                self.detect_storage_node_down(location, status)
-            s.close()
-            print("Directory Server disconnects from storage node {0}\n".format(location))
+                pass
+            else:
+                print("Directory Server is connecting to storage node {0}\n".format(location))
+                # set up socket
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                # allow python to use recently closed socket
+                s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    s.connect(location)
+                    print("Directory Server is connected to storage node {0}\n".format(location))
+                    msg = encode_update_message(file_name, file, (self.address, self.port)).encode(COD)
+                    s.send(msg)
+                    update_stats(msg)
+                except socket.error:
+                    print("372 error!!!")
+                    self.detect_storage_node_down(location, status)
+                s.close()
+                print("Directory Server disconnects from storage node {0}\n".format(location))
+            storage_node_done.append(element)
+            element = check_diff(storage_node_done, self.storage_nodes)
+
         print("Synchronized file {0} in the storage system\n".format(file_name))
 
     def copy_to_new_sn(self, new_port):
@@ -372,6 +395,7 @@ class DirectoryServer:
                     break
                 except socket.error:
                     # the primary storage node is down
+                    print("397 error!!!")
                     self.detect_storage_node_down(location, 1)
 
             message = encode_request_message(file_name).encode(COD)
@@ -399,6 +423,7 @@ class DirectoryServer:
                 s2.connect((StorageServerIP, new_port))
             except socket.error:
                 # the new storage node is down
+                print("425 Error!!!")
                 self.detect_storage_node_down((StorageServerIP, new_port), 0)
                 return
 
@@ -419,7 +444,6 @@ class DirectoryServer:
         index = self.storage_nodes.index(((StorageServerIP, new_port), 0))
         self.storage_nodes[index] = ((StorageServerIP, new_port), 1)
         self.backup_storage_nodes()
-        print("Updated storage node to the backup server.")
 
     def handler(self, connection, addr):
         """
@@ -494,8 +518,11 @@ class DirectoryServer:
                 self.copy_to_new_sn(sn[0][1])
         diff = 3 - len(self.storage_nodes)
         assert diff >= 0, "Error with storage nodes number: {}\n".format(len(self.storage_nodes))
-        while 3 - len(self.storage_nodes):
+        while diff:
+            print("521 Error!!!")
+            print(self.storage_nodes)
             self.detect_storage_node_down(None, None)
+            diff -= 1
 
 
 class StorageServer:

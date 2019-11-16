@@ -84,7 +84,7 @@ def obtain(filename):
         with open(filename,'rt') as f:
             return f.read()
     except:
-        print("Something went wrong during obtaining file")
+        print("Something went wrong during obtaining file: {}\n".format(filename))
         
     
     
