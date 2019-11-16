@@ -23,7 +23,7 @@ if __name__ == "__main__":
     i_thread.daemon = True
     i_thread.start()
 
-    time.sleep(15)
+    time.sleep(8)
     ds.stop()
 
     try:
