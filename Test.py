@@ -80,29 +80,89 @@ def run_storage(configs):
     return storage_servers, threads
     
     
-def launch_client(cl, file_num):
+def launch_client(cl, file_num, task_num):
     """
     launch client for different uses
-    """
+    :param cl: client object to launch tasks
+    :paran file_num: number of files to add to system
+    :param task_num: number of files to download
+    """ 
     fl = utils.get_file_list(cl.data_path)
     if len(fl) > file_num:
         fl = fl[:file_num]
         
+    #CONNECT TEST: get location of storage nodes    
+    cl.connect()
+    #interval for connect totally finished
+    time.sleep(3)
+    
+    #ADDFILE TEST: add local files to file system
     for filename in fl:
         path = cl.data_path + filename
-        file = utils.obtain(filename)
-        cl.addFile()
+        file = utils.obtain(path)
+        cl.addFile(filename, file)
+    #interval for add files totally finished
+    time.sleep(5)
     
-def run_client():
+    #GET_FILE_LIST test: get file list from directory and storage nodes
+    file_list_dir = cl.get_FileList(isDir=True)
+    print("File list from directory server: {}".format(file_list_dir))
+    file_list_s = cl.get_FileList(isDir=False)
+    print("File list from directory server: {}".format(file_list_s))
+    #interval for add files totally finished
+    time.sleep(5)
+    
+    tasks = [filename not in fl for filename in file_list_dir]
+    if len(tasks) > task_num:
+        tasks = tasks[:task_num]
+        
+    print("Client on {0} tasks: {1}".format(cl.data_path, tasks))
+    
+    for task in tasks:
+        cl.readFile(task)
+    
+    
+def run_client(configs, frequency, filenum, tasknum, delay=0):
     """
     run client
+    :param configs: list of client configs need to be launched, a list of data directory
+    :param frequency: frequency to launch a new client running test tasks
+    :return clients: clients opened
+    :return threads: on running client tasks
     """
+    clients = []
+    threads = []
+    period = 1/frequency
+    for directory in configs:
+        client = fs.Clients(configs, fs.DirectoryServerPortBase + 1)     
+        clients.append(client)
     
-    
-storage_nodes = [((fs.StorageServerIP, fs.StorageServerPortBase + 1), 1),
-                 ((fs.StorageServerIP, fs.StorageServerPortBase + 2), 1),
-                 ((fs.StorageServerIP, fs.StorageServerPortBase + 3), 1)]
+    for i,cl in enumerate(clients):
+        i_thread = threading.Timer(i*period, target=launch_storage, args=(cl,filenum,tasknum))
+        i_thread.daemon = True
+        i_thread.start()
+        threads.append(i_thread)                                  
+                                
 
-configs = [("data/data_1", fs.StorageServerPortBase + 1),
-           ("data/data_2", fs.StorageServerPortBase + 2),
-           ("data/data_3", fs.StorageServerPortBase + 3)]
+    return clients, threads                                                                     
+    
+
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description='Peer-to-Peer system Evaluation Program')
+    parser.add_argument('-M', '--filesize',type=str, default = '3', help = 'number of files initialized in a client')
+    parser.add_argument('-N', '--requestsize',type=str, default = '1', help = 'number of readfile one client triggered')
+    parser.add_argument('-F', '--frequency',type=str, default = '1', help = 'frequency of tasks triggered')
+    
+    args = parser.parse_args()
+    
+    storage_nodes = [((fs.StorageServerIP, fs.StorageServerPortBase + 1), 1),
+                     ((fs.StorageServerIP, fs.StorageServerPortBase + 2), 1),
+                     ((fs.StorageServerIP, fs.StorageServerPortBase + 3), 1)]
+    
+    storage_configs = [("data/data_1", fs.StorageServerPortBase + 1),
+                       ("data/data_2", fs.StorageServerPortBase + 2),
+                       ("data/data_3", fs.StorageServerPortBase + 3)]
+    
+    client_configs = ["data/client_1", "data/client_2"]
+
