@@ -24,12 +24,12 @@ import time
 
 #server configs
 StorageServerPortBase = 7000
-#StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
-StorageServerIP = '127.0.0.1'
+StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
+#StorageServerIP = '127.0.0.1'
 
 DirectoryServerPortBase = 6000
-#DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
-DirectoryServerIP = '127.0.0.1'
+DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
+#DirectoryServerIP = '127.0.0.1'
 
 
 
@@ -286,7 +286,7 @@ class DirectoryServer:
                     # is tail
                     break
 
-            msg = encode_update_message(file_name, message_contents[len(DATA_HEADER):-len(DATA_TAIL)], (self.address, self.port))
+            msg = encode_update_message(file_name, message_contents[len(DATA_HEADER):-len(DATA_TAIL)], (self.address, self.port)).encode(COD)
             ack = DISCONNECT.encode(COD)
             s1.send(ack)
             update_stats(ack)

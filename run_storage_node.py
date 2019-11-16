@@ -40,13 +40,10 @@ if __name__ == "__main__":
         i_thread.start()
         threads.append(i_thread)
 
-    time.sleep(10)
+    time.sleep(5)
 
     s = servers[0]
     s.stop()
-    
-    for t in threads:
-        t.join()
     
     try:
         time.sleep(1000)
