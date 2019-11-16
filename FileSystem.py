@@ -153,8 +153,8 @@ class DirectoryServer:
                 s.connect((self.address, self.port + 1))
 
             except socket.error:
-                s.connect((self.address, self.port + 1))
                 self.launch_bp_directory_server_thread()
+                s.connect((self.address, self.port + 1))
 
             msg = encode_bp_fl_message(self.file_list).encode(COD)
             s.send(msg)
