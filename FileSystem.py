@@ -791,6 +791,7 @@ class Clients:
             except socket.error as e:
                 print(e)
                 self.send_error(dirError=True)
+                self.s.connect((self.dir_ip, self.dir_port))
         else:
             if self.locations == None:
                 print("No storage node known!")
@@ -802,8 +803,6 @@ class Clients:
                 except socket.error as e:
                     print(e)
                     self.send_error(dirError=False)
-                    self.close()
-                    self.open_socket()
                     self.connect()
                     self.build_connection(isDir=False)
         
