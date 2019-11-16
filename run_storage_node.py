@@ -49,15 +49,10 @@ if __name__ == "__main__":
                        ("data/data_2", fs.StorageServerPortBase + 2),
                        ("data/data_3", fs.StorageServerPortBase + 3)]
     servers, threads = run_storage(storage_configs)
-    
-#    time.sleep(5)
-#
-#    s = servers[0]
-#    s.stop()
+
     
     try:
-        for thread in threads:
-            thread.join()
+        time.sleep(40000)
     except KeyboardInterrupt:
         for ss in servers:
             ss.stop()
