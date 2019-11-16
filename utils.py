@@ -18,7 +18,9 @@ def encode_location_message(location):
 
 
 def decode_location_message(location_message):
-    return json.loads(location_message)
+    location = json.loads(location_message)
+    location = (location[0].encode(FileSystem.COD), location[1])
+    return location
 
 
 def encode_list_message(file_list):
@@ -26,7 +28,11 @@ def encode_list_message(file_list):
 
 
 def decode_list_message(list_message):
-    return json.loads(list_message)
+    list_files = json.loads(list_message)
+    clean_list_files = []
+    for t in list_files:
+        clean_list_files.append(t.encode(FileSystem.COD))
+    return clean_list_files
 
 
 def encode_update_message(file_name, file, addr):
@@ -72,7 +78,10 @@ def encode_bp_fl_message(file_list):
 
 def decode_bp_fl_message(message):
     file_list = json.loads(message)
-    return set(file_list)
+    clean_list_files = []
+    for t in file_list:
+        clean_list_files.append(t.encode(FileSystem.COD))
+    return set(clean_list_files)
 
 
 def obtain(filename):

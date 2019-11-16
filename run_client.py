@@ -34,6 +34,7 @@ def launch_client(response_record, data_path, M):
     print("Client on {0} adding file: {1}".format(data_path, filename))
     path = data_path + filename
     file = utils.obtain(path)
+    print(file)
     client.addFile(filename, file)
     
     
@@ -55,10 +56,11 @@ def launch_client(response_record, data_path, M):
     end = time.time()
     response_time = end-start
     print("\nRequests in {0} of finished in {1:4f} second\n".format(data_path, response_time))
-    accu,count = response_record[data_path]
+    accu, count = response_record[data_path]
     accu += response_time
     count += 3
     response_record[data_path] = accu,count
+
     
 def run_client(response_record,datapath, F, M, N):
     """
@@ -91,10 +93,7 @@ if __name__ == "__main__":
     M = int(args.filesize)
     N = int(args.requestsize)
     F = float(args.frequency)
-    
-    M = 5
-    N = 3
-    F = 2
+
     response_record = defaultdict(list)
             
     response_record = defaultdict(list)
@@ -113,8 +112,7 @@ if __name__ == "__main__":
 
     accu,count = response_record["data/client_1/"]
     print("Average respond time in {0} is {1:4f}".format("data/client_1/",accu/count))
-        
-    
+
     msg_count,bytes_count = fs.get_stats()
 #    writer.writerow(["Message count",msg_count])
 #    writer.writerow(["Byte count",bytes_count])
