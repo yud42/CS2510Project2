@@ -301,7 +301,7 @@ class DirectoryServer:
                 self.detect_storage_node_down((StorageServerIP, new_port), 0)
                 return
 
-
+            msg = msg.encode(COD)
             s2.send(msg)
             update_stats(msg)
             msg = s2.recv(MAX_RECV_SIZE)
@@ -309,9 +309,9 @@ class DirectoryServer:
                 pass
             else:
                 print("299 Unrecognized message received by directory server: {}".format(msg))
-            s1.shutdown(socket.SHUT_RDWR)
+#            s1.shutdown(socket.SHUT_RDWR)
             s1.close()
-            s2.shutdown(socket.SHUT_RDWR)
+#            s2.shutdown(socket.SHUT_RDWR)
             s2.close()
             print("Copied file {0} to new storage node {1}".format(file_name, new_port))
         # change status to 1
@@ -681,6 +681,10 @@ class Clients:
                 except socket.error as e:
                     print(e)
                     self.send_error(dirError=False)
+                    self.close()
+                    self.open_socket()
+                    self.connect()
+                    self.build_connection(isDir=False)
         
 
     def connect(self):
@@ -798,7 +802,7 @@ class Clients:
         close socket
         """
 
-        self.s.shutdown(socket.SHUT_RDWR)
+#        self.s.shutdown(socket.SHUT_RDWR)
         self.s.close()
     
     def open_socket(self):

@@ -45,8 +45,8 @@ if __name__ == "__main__":
     s = servers[0]
     s.stop()
     
-    for t in threads:
-        t.join()
+#    for t in threads:
+#        t.join()
     
     try:
         time.sleep(1000)
