@@ -24,11 +24,12 @@ import time
 
 #server configs
 StorageServerPortBase = 7000
-StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
-#StorageServerIP = '127.0.0.1'
+#StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
+StorageServerIP = '127.0.0.1'
+
 DirectoryServerPortBase = 6000
-DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
-#DirectoryServerIP = '127.0.0.1'
+#DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
+DirectoryServerIP = '127.0.0.1'
 
 
 
@@ -188,8 +189,11 @@ class DirectoryServer:
         if msg.decode(COD) == DISCONNECT:
             pass
         else:
-            print("191 Unrecognized message received by directory server: {}".format(msg))
-        s.shutdown(socket.SHUT_RDWR)
+
+            print("Unrecognized message received by directory server: {}".format(msg))
+#        s.shutdown(socket.SHUT_RDWR)
+
+
         s.close()
         new_port = StorageServerPortBase + self.launch_num
         self.storage_nodes.append(((StorageServerIP, new_port), 0))
@@ -296,6 +300,7 @@ class DirectoryServer:
                 # the new storage node is down
                 self.detect_storage_node_down((StorageServerIP, new_port), 0)
                 return
+
 
             s2.send(msg)
             update_stats(msg)
@@ -407,7 +412,6 @@ class StorageServer:
         self.switch = True
         while self.switch:
             connection, addr = self.s.accept()
-    
             # append to the list of peers 
             self.peers.append(addr)
             # create a thread for a connection
@@ -416,6 +420,7 @@ class StorageServer:
             c_thread.start()
             self.connections.append(connection)
             print("{0}, connected to port {1}\n".format(addr, self.port))
+            
         
     def handler(self, connection, addr):
         """
@@ -516,7 +521,6 @@ class StorageServer:
             
         
         filename, file, address = decode_update_message(data_body)
-        print(address)
         if address[0] != self.dir_ip or address[1] != self.dir_port:
             self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
@@ -578,6 +582,7 @@ class StorageServer:
         Launch a new storage node since an old one is down. Copy all the files into the new one.
         :return:
         """
+
         launch_num = int(data[len(LAUNCH_HEADER):])
         new_port = StorageServerPortBase + launch_num
         # launch new storage server
@@ -636,12 +641,14 @@ class Clients:
         if dirError:
             print('Clients: Error seen when connecting to directory server!')
             self.dir_port += 1
-            self.s.connect((self.dir_ip, self.dir_port))
+            self.open_socket()
+            self.build_connection(isDir=True)
             message = DIR_ERROR.encode()
             self.s.send(message)
             update_stats(message)
         else:
             print('Clients: Error seen when connecting to storage server!')
+            self.open_socket()
             self.build_connection(isDir=True)
             message = STORAGE_ERROR.encode()
             self.s.send(message)
@@ -658,17 +665,21 @@ class Clients:
         """
         if isDir:
             try:
+                print("Connecting to directory server: {}".format((self.dir_ip, self.dir_port)))
                 self.s.connect((self.dir_ip, self.dir_port))
             except socket.error as e:
+                print(e)
                 self.send_error(dirError=True)
         else:
             if self.locations == None:
                 print("No storage node known!")
             else:
                 try:
+                    print("Connecting to storage node: {}".format(self.locations))
                     addr, port = self.locations
                     self.s.connect((addr, port))
-                except socket.error:
+                except socket.error as e:
+                    print(e)
                     self.send_error(dirError=False)
         
 

@@ -19,7 +19,12 @@ if __name__ == "__main__":
     filename = "data/client_1/6sucess.txt"
     file = utils.obtain(filename)
     client.connect()
-    client.addFile("6sucess.txt", file)
+
+    try:
+        client.addFile("6sucess.txt",file)
+    except OSError:
+        client.connect()
+        client.addFile("6sucess.txt",file)
 
     time.sleep(3)
     file_list = client.get_FileList(isDir=True)
@@ -32,4 +37,10 @@ if __name__ == "__main__":
     file_list = client.get_FileList(isDir=True)
     print("File list: {}".format(file_list))
 
-
+    try:
+        f = client.readFile("6sucess.txt")
+    except OSError:
+        client.connect()
+        f = client.readFile("6sucess.txt")
+        
+    print(f)
