@@ -6,6 +6,7 @@ This script is for running the directory servers
 import FileSystem as fs
 import threading
 import time
+import argparse
 
 
 def run_ds(ds):
@@ -14,6 +15,15 @@ def run_ds(ds):
 
 
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description='File system Evaluation Program')
+    parser.add_argument('-T', '--down_time',type=str, default = '10', help = 'time from start the directory node was killed')
+    
+    args = parser.parse_args()
+    T = int(args.down_time)
+    
+    T = 100
+    
     fs.reset_stats()
     storage_nodes = [((fs.StorageServerIP, fs.StorageServerPortBase + 1), 1),
                      ((fs.StorageServerIP, fs.StorageServerPortBase + 2), 1),
@@ -24,6 +34,9 @@ if __name__ == "__main__":
     i_thread.daemon = True
     i_thread.start()
 
+    time.sleep(T)
+    ds.stop()
+    
     try:
         time.sleep(3000)
     except KeyboardInterrupt:
