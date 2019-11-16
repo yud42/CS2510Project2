@@ -293,6 +293,7 @@ class DirectoryServer:
                 if data.decode(COD)[-len(DATA_TAIL):] == DATA_TAIL:
                     # is tail
                     break
+            
             ack = DISCONNECT.encode(COD)
             s1.send(ack)
             update_stats(ack)
@@ -512,7 +513,6 @@ class StorageServer:
             
         
         filename, file, address = decode_update_message(data_body)
-        print(address)
         if address[0] != self.dir_ip or address[1] != self.dir_port:
             self.addFile(filename, file)
         file_path = os.path.join(self.data_path, filename)
