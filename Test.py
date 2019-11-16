@@ -80,11 +80,18 @@ def run_storage(configs):
     return storage_servers, threads
     
     
-def launch_client(cl, file = None, filename = None):
+def launch_client(cl, file_num):
     """
     launch client for different uses
     """
-    
+    fl = utils.get_file_list(cl.data_path)
+    if len(fl) > file_num:
+        fl = fl[:file_num]
+        
+    for filename in fl:
+        path = cl.data_path + filename
+        file = utils.obtain(filename)
+        cl.addFile()
     
 def run_client():
     """

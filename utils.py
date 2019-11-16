@@ -129,7 +129,7 @@ def get_index_server_port(filename):
         # connect to index server C
         return FileSystem.INDEX_PORT_C
      
-def get_list(filepath):
+def get_file_list(filepath):
     datalist = os.listdir(filepath)
     for i in datalist:
         if i.startswith('.'):
