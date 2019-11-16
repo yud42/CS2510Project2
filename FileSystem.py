@@ -57,9 +57,14 @@ DISCONNECT = '#QUIT#'
 DIR_ERROR = '#DIRFAIL#'
 #ERROR from client indicate primary storage server down
 STORAGE_ERROR = '#STORAGEFAIL#'
-# Header of message, from directory server to primary storage server, for lauching new node
+# Header of message, from directory server to primary storage server, for launching new node
 LAUNCH_HEADER = "#start#"
-
+# Header of message, from directory server to its backup server, for sending storage nodes info
+BP_STORAGE_HEADER = "#SNinfo#"
+# Header of message, from directory server to its backup server, for sending file list info
+BP_FL_HEADER = "#FLinfo#"
+# Header of message, from directory server to its backup server, for sending launch number info
+BP_LN_HEADER = "#LNinfo#"
 # Maximum Queue length
 MAX_QUEUE_SIZE = 5
 
@@ -115,12 +120,81 @@ class DirectoryServer:
         self.s.bind((self.address, self.port))
         # listen all messages
         self.s.listen(MAX_QUEUE_SIZE)
-        # the number of down storage node before repairing
-        self.down_num = 0
         # the number of storage nodes have already been launched, by default is 3
         self.launch_num = 3
         self.start = True
+        self.primary = False
         print("-" * 12 + "Directory Server {0} : {1} Running".format(address, port) + "-" * 21 + "\n")
+
+    def backup_storage_nodes(self):
+        # send storage_nodes message to backup directory server
+        if self.primary:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.connect((self.address, self.port + 1))
+
+            except socket.error:
+                self.launch_bp_directory_server_thread()
+                s.connect((self.address, self.port + 1))
+
+            msg = encode_bp_sn_message(self.storage_nodes).encode(COD)
+            s.send(msg)
+            update_stats(msg)
+            s.close()
+        return
+
+    def backup_file_list(self):
+        # send file_list message to backup directory server
+        if self.primary:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.connect((self.address, self.port + 1))
+
+            except socket.error:
+                s.connect((self.address, self.port + 1))
+                self.launch_bp_directory_server_thread()
+
+            msg = encode_bp_fl_message(self.file_list).encode(COD)
+            s.send(msg)
+            update_stats(msg)
+            s.close()
+        return
+
+    def backup_launch_num(self):
+        # send launch_num message to backup directory server
+        if self.primary:
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                s.connect((self.address, self.port + 1))
+
+            except socket.error:
+                self.launch_bp_directory_server_thread()
+                s.connect((self.address, self.port + 1))
+
+            msg = BP_LN_HEADER + str(self.launch_num)
+            msg = msg.encode(COD)
+            s.send(msg)
+            update_stats(msg)
+            s.close()
+        return
+
+    def update_storage_nodes(self, data, connection, addr):
+        data = data[len(BP_STORAGE_HEADER):]
+        self.storage_nodes = decode_bp_sn_message(data)
+        self.disconnect(connection, addr)
+
+    def update_file_list(self, data, connection, addr):
+        data = data[len(BP_FL_HEADER):]
+        self.file_list = decode_bp_fl_message(data)
+        self.disconnect(connection, addr)
+
+    def update_launch_num(self, data, connection, addr):
+        data = data[len(BP_LN_HEADER):]
+        self.launch_num = int(data)
+        self.disconnect(connection, addr)
 
     def connect(self):
         """
@@ -162,11 +236,15 @@ class DirectoryServer:
          :param status: the status of the failed storage node
         :return:
         """
-        self.down_num += 1
-        self.storage_nodes.remove((location, status))
-        print("Storage node {} is down, remove it from storage list\n".format(location))
+        if location and status:
+            self.storage_nodes.remove((location, status))
+            print("Storage node {} is down, remove it from storage list\n".format(location))
+            self.backup_storage_nodes()
+            print("Updated storage node info to the backup server.")
         print("Starting a new storage node ...\n")
         self.launch_num += 1
+        self.backup_launch_num()
+        print("Updated launch num info to the backup server.")
         # send message to primary storage node for launching a new node
         msg = LAUNCH_HEADER + str(self.launch_num)
         msg = msg.encode(COD)
@@ -189,15 +267,32 @@ class DirectoryServer:
         if msg.decode(COD) == DISCONNECT:
             pass
         else:
-
             print("Unrecognized message received by directory server: {}".format(msg))
 #        s.shutdown(socket.SHUT_RDWR)
-
-
         s.close()
         new_port = StorageServerPortBase + self.launch_num
         self.storage_nodes.append(((StorageServerIP, new_port), 0))
-        self.copy_to_new_sn()
+        self.backup_storage_nodes()
+        print("Updated storage node info to the backup server.")
+        self.copy_to_new_sn(new_port)
+
+    def launch_bp_directory_server(self):
+        """
+        Launch backup directory server
+        :return:
+        """
+        new_port = self.port + 1
+        new_ds = DirectoryServer(self.address, new_port, self.storage_nodes)
+        print("New directory server {0} is started.\n".format(new_port))
+        new_ds.file_list = self.file_list
+        new_ds.launch_num = self.launch_num
+        new_ds.run()
+        return
+
+    def launch_bp_directory_server_thread(self):
+        i_thread = threading.Thread(target=self.launch_bp_directory_server, args=())
+        i_thread.daemon = True
+        i_thread.start()
 
     def newFile(self, data, connection, addr):
         data_body = ''
@@ -233,6 +328,8 @@ class DirectoryServer:
 
         self.file_list.add(file_name)
         print("Synchronizing file {0} in the storage system\n".format(file_name))
+        self.backup_file_list()
+        print("Updated file list info to the backup server.")
         for location, status in self.storage_nodes:
             location_receive = (location_receive[0], location_receive[1])
             if location == location_receive:
@@ -254,8 +351,7 @@ class DirectoryServer:
             print("Directory Server disconnects from storage node {0}\n".format(location))
         print("Synchronized file {0} in the storage system\n".format(file_name))
 
-    def copy_to_new_sn(self):
-        new_port = StorageServerPortBase + self.launch_num
+    def copy_to_new_sn(self, new_port):
         print("Start copying files to the new storage node {}".format(new_port))
         file_list = list(self.file_list)
         for file_name in file_list:
@@ -317,6 +413,8 @@ class DirectoryServer:
         # change status to 1
         index = self.storage_nodes.index(((StorageServerIP, new_port), 0))
         self.storage_nodes[index] = ((StorageServerIP, new_port), 1)
+        self.backup_storage_nodes()
+        print("Updated storage node to the backup server.")
 
     def handler(self, connection, addr):
         """
@@ -338,7 +436,16 @@ class DirectoryServer:
             self.detect_storage_node_down(self.connect(), 1)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
             self.newFile(data, connection, addr)
-
+        elif data and data[:len(BP_STORAGE_HEADER)] == BP_STORAGE_HEADER:
+            self.update_storage_nodes(data, connection, addr)
+        elif data and data[:len(BP_FL_HEADER)] == BP_FL_HEADER:
+            self.update_file_list(data, connection, addr)
+        elif data and data[:len(BP_LN_HEADER)] == BP_LN_HEADER:
+            self.update_launch_num(data, connection, addr)
+        elif data and data[:len(DIR_ERROR)] == DIR_ERROR:
+            self.primary = True
+            self.check_status()
+            self.launch_bp_directory_server_thread()
         else:
             print("330 Unrecognized message received by directory server: {}".format(data))
             self.disconnect(connection, addr)
@@ -370,6 +477,20 @@ class DirectoryServer:
         """
         connection.close()
         print("{0}, disconnected from the directory server {1}\n".format(addr, self.port))
+
+    def check_status(self):
+        """
+        Check storage nodes status
+        :return:
+        """
+        # relaunch storage nodes with status = 0
+        for sn in self.storage_nodes:
+            if sn[1] == 0:
+                self.copy_to_new_sn(sn[0][1])
+        diff = 3 - len(self.storage_nodes)
+        assert diff >= 0, "Error with storage nodes number: {}\n".format(len(self.storage_nodes))
+        while 3 - len(self.storage_nodes):
+            self.detect_storage_node_down(None, None)
 
 
 class StorageServer:

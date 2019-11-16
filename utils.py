@@ -51,6 +51,24 @@ def decode_request_message(request_message):
     return request_message
 
 
+def encode_bp_sn_message(storage_nodes):
+    return FileSystem.BP_STORAGE_HEADER + json.dumps(storage_nodes)
+
+
+def decode_bp_sn_message(message):
+    storage_nodes = json.loads(message)
+    return storage_nodes
+
+
+def encode_bp_fl_message(file_list):
+    return FileSystem.BP_FL_HEADER + json.dumps(list(file_list))
+
+
+def decode_bp_fl_message(message):
+    file_list = json.loads(message)
+    return set(file_list)
+
+
 def obtain(filename):
     """
     obtain data by request 

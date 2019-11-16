@@ -45,4 +45,4 @@ if __name__ == "__main__":
 #        client.connect()
 #        f = client.readFile("6sucess.txt")
 #        
-    print(f)
+    #print(f)
