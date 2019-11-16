@@ -7,6 +7,7 @@ import FileSystem as fs
 import threading
 import time
 import socket
+import argparse
 
 def run_ss(ss):
     ss.run()
@@ -44,20 +45,31 @@ def run_storage(configs):
     return storage_servers, threads
 
 if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser(description='File system Evaluation Program')
+    parser.add_argument('-N', '--down_num',type=str, default = '0', help = 'number of storage node down after downtime')
+    parser.add_argument('-T', '--down_time',type=str, default = '10', help = 'time from start the storage node was killed')
+    
+    args = parser.parse_args()
+    N = int(args.down_num)
+    T = int(args.down_time)
+    
     fs.reset_stats()
     storage_configs = [("data/data_1", fs.StorageServerPortBase + 1),
                        ("data/data_2", fs.StorageServerPortBase + 2),
                        ("data/data_3", fs.StorageServerPortBase + 3)]
     servers, threads = run_storage(storage_configs)
     
-#    time.sleep(5)
-#
-#    s = servers[0]
-#    s.stop()
+    time.sleep(T)
+
+    if N != 0:
+        time.sleep(T)
+        for i in range(N):
+            s = servers[i]
+            s.stop()
     
     try:
-        for thread in threads:
-            thread.join()
+        time.sleep(50000)
     except KeyboardInterrupt:
         for ss in servers:
             ss.stop()

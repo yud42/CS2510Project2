@@ -83,7 +83,7 @@ def run_client(response_record,datapath, F, M, N):
 
 if __name__ == "__main__":
     
-    parser = argparse.ArgumentParser(description='Peer-to-Peer system Evaluation Program')
+    parser = argparse.ArgumentParser(description='File system Evaluation Program')
     parser.add_argument('-M', '--filesize',type=str, default = '3', help = 'number of files initialized in a client')
     parser.add_argument('-N', '--requestsize',type=str, default = '1', help = 'number of readfile one client triggered')
     parser.add_argument('-F', '--frequency',type=str, default = '1', help = 'frequency of tasks triggered')
