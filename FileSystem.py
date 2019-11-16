@@ -124,6 +124,7 @@ class DirectoryServer:
         self.launch_num = 3
         self.start = True
         self.primary = False
+        self.wait_num = 0
         print("-" * 12 + "Directory Server {0} : {1} Running".format(address, port) + "-" * 21 + "\n")
 
     def backup_storage_nodes(self):
@@ -472,9 +473,10 @@ class DirectoryServer:
         elif data and data[:len(BP_LN_HEADER)] == BP_LN_HEADER:
             self.update_launch_num(data, connection, addr)
         elif data and data[:len(DIR_ERROR)] == DIR_ERROR:
-            self.primary = True
-            self.check_status()
-            self.launch_bp_directory_server_thread()
+            if not self.primary:
+                self.primary = True
+                self.check_status()
+                self.launch_bp_directory_server_thread()
         else:
             print("330 Unrecognized message received by directory server: {}".format(data))
             self.disconnect(connection, addr)
@@ -513,12 +515,17 @@ class DirectoryServer:
         :return:
         """
         # relaunch storage nodes with status = 0
+        print("status 1")
         for sn in self.storage_nodes:
+            print("status 2")
             if sn[1] == 0:
                 self.copy_to_new_sn(sn[0][1])
+        print("status 3")
         diff = 3 - len(self.storage_nodes)
+        print("status 4")
         assert diff >= 0, "Error with storage nodes number: {}\n".format(len(self.storage_nodes))
         while diff:
+            print("status 5")
             print("521 Error!!!")
             print(self.storage_nodes)
             self.detect_storage_node_down(None, None)
