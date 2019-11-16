@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     time.sleep(3)
 
-    s = servers[2]
+    s = servers[0]
     s.stop()
 
     try:
