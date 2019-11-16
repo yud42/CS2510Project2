@@ -78,7 +78,6 @@ def run_client(response_record,datapath, F, M, N):
         i_thread.daemon = True
         i_thread.start()
         threads.append(i_thread)                                  
-                                
 
     return threads                                                                     
     

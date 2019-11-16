@@ -24,12 +24,12 @@ import time
 
 #server configs
 StorageServerPortBase = 7000
-#StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
-StorageServerIP = '127.0.0.1'
+StorageServerIP = '136.142.227.11'  #hydrogen.cs.pitt.edu
+#StorageServerIP = '127.0.0.1'
 
 DirectoryServerPortBase = 6000
-#DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
-DirectoryServerIP = '127.0.0.1'
+DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
+#DirectoryServerIP = '127.0.0.1'
 
 
 
@@ -259,7 +259,6 @@ class DirectoryServer:
                 break
             except socket.error:
                 # the primary storage node is down
-                print("261 Error!!!")
                 self.detect_storage_node_down(location, 1)
 
         s.send(msg)
@@ -371,7 +370,6 @@ class DirectoryServer:
                     s.send(msg)
                     update_stats(msg)
                 except socket.error:
-                    print("372 error!!!")
                     self.detect_storage_node_down(location, status)
                 s.close()
                 print("Directory Server disconnects from storage node {0}\n".format(location))
@@ -396,7 +394,6 @@ class DirectoryServer:
                     break
                 except socket.error:
                     # the primary storage node is down
-                    print("397 error!!!")
                     self.detect_storage_node_down(location, 1)
 
             message = encode_request_message(file_name).encode(COD)
@@ -424,7 +421,6 @@ class DirectoryServer:
                 s2.connect((StorageServerIP, new_port))
             except socket.error:
                 # the new storage node is down
-                print("425 Error!!!")
                 self.detect_storage_node_down((StorageServerIP, new_port), 0)
                 return
 
@@ -515,19 +511,12 @@ class DirectoryServer:
         :return:
         """
         # relaunch storage nodes with status = 0
-        print("status 1")
         for sn in self.storage_nodes:
-            print("status 2")
             if sn[1] == 0:
                 self.copy_to_new_sn(sn[0][1])
-        print("status 3")
         diff = 3 - len(self.storage_nodes)
-        print("status 4")
         assert diff >= 0, "Error with storage nodes number: {}\n".format(len(self.storage_nodes))
         while diff:
-            print("status 5")
-            print("521 Error!!!")
-            print(self.storage_nodes)
             self.detect_storage_node_down(None, None)
             diff -= 1
 
