@@ -125,6 +125,7 @@ class DirectoryServer:
         self.start = True
         self.primary = False
         print("-" * 12 + "Directory Server {0} : {1} Running".format(address, port) + "-" * 21 + "\n")
+        print("Storage nodes: {}".format(self.storage_nodes))
 
     def backup_storage_nodes(self):
         # send storage_nodes message to backup directory server
@@ -153,8 +154,8 @@ class DirectoryServer:
                 s.connect((self.address, self.port + 1))
 
             except socket.error:
-                s.connect((self.address, self.port + 1))
                 self.launch_bp_directory_server_thread()
+                s.connect((self.address, self.port + 1))
 
             msg = encode_bp_fl_message(self.file_list).encode(COD)
             s.send(msg)
@@ -184,16 +185,19 @@ class DirectoryServer:
     def update_storage_nodes(self, data, connection, addr):
         data = data[len(BP_STORAGE_HEADER):]
         self.storage_nodes = decode_bp_sn_message(data)
+        print("updated storage nodes: {}".format(self.storage_nodes))
         self.disconnect(connection, addr)
 
     def update_file_list(self, data, connection, addr):
         data = data[len(BP_FL_HEADER):]
         self.file_list = decode_bp_fl_message(data)
+        print("updated file_list: {}".format(self.file_list))
         self.disconnect(connection, addr)
 
     def update_launch_num(self, data, connection, addr):
         data = data[len(BP_LN_HEADER):]
         self.launch_num = int(data)
+        print("updated launch num: {}".format(self.launch_num))
         self.disconnect(connection, addr)
 
     def connect(self):
@@ -331,6 +335,7 @@ class DirectoryServer:
         self.backup_file_list()
         print("Updated file list info to the backup server.")
         for location, status in self.storage_nodes:
+            #print("storage nodes: {}".format(self.storage_nodes))
             location_receive = (location_receive[0], location_receive[1])
             if location == location_receive:
                 continue

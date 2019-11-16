@@ -57,7 +57,13 @@ def encode_bp_sn_message(storage_nodes):
 
 def decode_bp_sn_message(message):
     storage_nodes = json.loads(message)
-    return storage_nodes
+    storage_nodes_2 = []
+    for s in storage_nodes:
+        status = s[1]
+        addr, port = s[0]
+        addr = addr.encode(FileSystem.COD)
+        storage_nodes_2.append(((addr, port), status))
+    return storage_nodes_2
 
 
 def encode_bp_fl_message(file_list):
