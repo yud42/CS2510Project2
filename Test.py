@@ -9,142 +9,75 @@ import FileSystem as fs
 import utils
 import threading
 import time
+import argparse
+import random
+from collections import defaultdict
+import csv
 
-def launch_directory(ds):
-    """
-    launch directory server
-    :param ds: a directory server object we want to launch
-    """
-    try:
-        ds.run()
-    except KeyboardInterrupt:
-        ds.stop()
-
-def run_directory(storage_nodes):
-    """
-    run a pair of directory server based on configs
-    :param storage_nodes: a list of storage nodes configs ((addr, port), status) belong to the system
-    :return directory_servers: a list of directory server objects for later manipulation
-    :return threads: a list of threads launched by the function (running directory servers)
-    """
-    directory_servers = []
-    threads = []
-    
-    ds = fs.DirectoryServer(fs.DirectoryServerIP, fs.DirectoryServerPortBase + 1, storage_nodes)
-    ds.primary = True
-    directory_servers.append(ds)
-    
-    ds_bp = fs.DirectoryServer(fs.DirectoryServerIP, fs.DirectoryServerPortBase + 2, storage_nodes)
-    ds.primary = False
-    directory_servers.append(ds_bp)
-    
-    for ds in directory_servers:
-        i_thread = threading.Thread(target=launch_directory, args=(ds,))
-        i_thread.daemon = True
-        i_thread.start()
-        threads.append(i_thread)
-    
-    return directory_servers, threads
-        
-        
-def launch_storage(ss):
-    """
-    launch storage node
-    :param ss: a storage server object we want to launch
-    """
-    try:
-        ss.run()
-    except KeyboardInterrupt:
-        ss.stop()
-
-def run_storage(configs):
-    """
-    run storage nodes
-    :param configs: a list of (data_path, port) configs for storage servers
-    :return storage_servers: a list of storage server objects for later manipulation
-    :return threads: a list of threads launched by the function (running storage servers)
-    """
-    storage_servers = []
-    threads = []
-    
-    for path, port in configs:
-        ss = fs.StorageServer(path, port)
-        storage_servers.append(ss)
-        
-    for ss in storage_servers:
-        i_thread = threading.Thread(target=launch_storage, args=(ss,))
-        i_thread.daemon = True
-        i_thread.start()
-        threads.append(i_thread)
-    
-    return storage_servers, threads
-    
-    
-def launch_client(cl, file_num, task_num):
+def launch_client(response_record, data_path, M):
     """
     launch client for different uses
-    :param cl: client object to launch tasks
-    :paran file_num: number of files to add to system
-    :param task_num: number of files to download
+    :param data_path: directory of the client
+    :param M: file size in storage node
     """ 
-    fl = utils.get_file_list(cl.data_path)
-    if len(fl) > file_num:
-        fl = fl[:file_num]
-        
+    client = fs.Clients(data_path, fs.DirectoryServerPortBase + 1)              
     #CONNECT TEST: get location of storage nodes    
-    cl.connect()
-    #interval for connect totally finished
-    time.sleep(3)
+    client.connect()
     
+    start = time.time() 
+
+    fl = utils.get_file_list(data_path)
+    print(fl)
     #ADDFILE TEST: add local files to file system
-    for filename in fl:
-        path = cl.data_path + filename
-        file = utils.obtain(path)
-        cl.addFile(filename, file)
-    #interval for add files totally finished
-    time.sleep(5)
+    rn = random.randint(0,len(fl))
+    filename = fl[rn]
+    print("Client on {0} adding file: {1}".format(data_path, filename))
+    path = data_path + filename
+    file = utils.obtain(path)
+    client.addFile(filename, file)
+    
     
     #GET_FILE_LIST test: get file list from directory and storage nodes
-    file_list_dir = cl.get_FileList(isDir=True)
+    file_list_dir = client.get_FileList(isDir=True)
+    if len(file_list_dir)>M:
+        file_list_dir = file_list_dir[:M]
     print("File list from directory server: {}".format(file_list_dir))
-    file_list_s = cl.get_FileList(isDir=False)
-    print("File list from directory server: {}".format(file_list_s))
-    #interval for add files totally finished
-    time.sleep(5)
+    
+
     
     tasks = [filename not in fl for filename in file_list_dir]
-    if len(tasks) > task_num:
-        tasks = tasks[:task_num]
+    rn = random.randint(0,len(tasks))
+    task = tasks[rn]
         
-    print("Client on {0} tasks: {1}".format(cl.data_path, tasks))
+    print("Client on {0} downloading: {1}".format(data_path, task))
+    client.readFile(task)    
+    end = time.time()
+    response_time = end-start
+    print("\nRequests in {0} of finished in {1:4f} second\n".format(data_path, response_time))
+    accu,count = response_record[data_path]
+    accu += response_time
+    count += 3
+    response_record[data_path] = accu,count
     
-    for task in tasks:
-        cl.readFile(task)
-    
-    
-def run_client(configs, frequency, filenum, tasknum, delay=0):
+def run_client(response_record,datapath, F, M, N):
     """
     run client
-    :param configs: list of client configs need to be launched, a list of data directory
-    :param frequency: frequency to launch a new client running test tasks
-    :return clients: clients opened
+    :param datapath: client data directory
+    :param F: frequency to launch a new client running test tasks
+    :return M: file size
     :return threads: on running client tasks
     """
-    clients = []
     threads = []
-    period = 1/frequency
-    for directory in configs:
-        client = fs.Clients(configs, fs.DirectoryServerPortBase + 1)     
-        clients.append(client)
+    period = 1/F
     
-    for i,cl in enumerate(clients):
-        i_thread = threading.Timer(i*period, target=launch_storage, args=(cl,filenum,tasknum))
+    for i in range(N):
+        i_thread = threading.Timer(i*period, launch_client, args=(response_record,datapath,M))
         i_thread.daemon = True
         i_thread.start()
         threads.append(i_thread)                                  
                                 
 
-    return clients, threads                                                                     
+    return threads                                                                     
     
 
 if __name__ == "__main__":
@@ -155,14 +88,33 @@ if __name__ == "__main__":
     parser.add_argument('-F', '--frequency',type=str, default = '1', help = 'frequency of tasks triggered')
     
     args = parser.parse_args()
+    M = int(args.filesize)
+    N = int(args.requestsize)
+    F = float(args.frequency)
     
-    storage_nodes = [((fs.StorageServerIP, fs.StorageServerPortBase + 1), 1),
-                     ((fs.StorageServerIP, fs.StorageServerPortBase + 2), 1),
-                     ((fs.StorageServerIP, fs.StorageServerPortBase + 3), 1)]
+    response_record = defaultdict(list)
+            
+    response_record = defaultdict(list)
+    response_record["data/client_1"] = [0,0]
+    fs.reset_stats()
     
-    storage_configs = [("data/data_1", fs.StorageServerPortBase + 1),
-                       ("data/data_2", fs.StorageServerPortBase + 2),
-                       ("data/data_3", fs.StorageServerPortBase + 3)]
     
-    client_configs = ["data/client_1", "data/client_2"]
+    client_threads = run_client(response_record, "data/client_1", F, M, N)
+    
+    for t in client_threads:
+        t.join()
+    
+    print('='*21 + 'statistics' + '='*21)
+    
+    fn='stats_response_time.csv'
+
+    accu,count = response_record["data/client_1"]
+    print("Average respond time in {0} is {1:4f}".format("data/client_1",accu/count))
+        
+    
+    msg_count,bytes_count = fs.get_stats()
+#    writer.writerow(["Message count",msg_count])
+#    writer.writerow(["Byte count",bytes_count])
+    print("Total messages sent: {}".format(msg_count))
+    print("Total bytes sent: {}".format(bytes_count))
 
