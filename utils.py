@@ -35,7 +35,11 @@ def encode_update_message(file_name, file, addr):
 
 
 def decode_update_message(update_message):
-    message_list = json.loads(update_message)
+    try:
+        message_list = json.loads(update_message)
+    except ValueError:
+        print("error update message {}".format(update_message))
+
     return message_list[0],message_list[1],message_list[2]
 
 

@@ -255,6 +255,7 @@ class DirectoryServer:
         print("Start copying files to the new storage node {}".format(new_port))
         file_list = list(self.file_list)
         for file_name in file_list:
+            print("Copying file {0} to new storage node {1}".format(file_name, new_port))
             # set up socket for requesting files
             s1 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s1.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -272,6 +273,20 @@ class DirectoryServer:
             s1.send(message)
             update_stats(message)
 
+            message_contents = ''
+            while True:
+                data = s1.recv(MAX_RECV_SIZE)
+                data = data.decode(COD)
+                message_contents += data
+                if data[-len(DATA_TAIL):] == DATA_TAIL:
+                    # is tail
+                    break
+
+            msg = encode_update_message(file_name, message_contents[len(DATA_HEADER):-len(DATA_TAIL)], (self.address, self.port))
+            ack = DISCONNECT.encode(COD)
+            s1.send(ack)
+            update_stats(ack)
+
             # send files to the new storage node
             s2 = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s2.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -282,16 +297,8 @@ class DirectoryServer:
                 self.detect_storage_node_down((StorageServerIP, new_port), 0)
                 return
 
-            while True:
-                data = s1.recv(MAX_RECV_SIZE)
-                s2.send(data)
-                update_stats(data)
-                if data.decode(COD)[-len(DATA_TAIL):] == DATA_TAIL:
-                    # is tail
-                    break
-            ack = DISCONNECT.encode(COD)
-            s1.send(ack)
-            update_stats(ack)
+            s2.send(msg)
+            update_stats(msg)
             msg = s2.recv(MAX_RECV_SIZE)
             if msg.decode(COD) == DISCONNECT:
                 pass
@@ -301,6 +308,7 @@ class DirectoryServer:
             s1.close()
             s2.shutdown(socket.SHUT_RDWR)
             s2.close()
+            print("Copied file {0} to new storage node {1}".format(file_name, new_port))
         # change status to 1
         index = self.storage_nodes.index(((StorageServerIP, new_port), 0))
         self.storage_nodes[index] = ((StorageServerIP, new_port), 1)
