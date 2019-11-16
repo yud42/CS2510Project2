@@ -44,21 +44,7 @@ def run_storage(configs):
     return storage_servers, threads
 
 if __name__ == "__main__":
-
-#    servers = []
-#    for data_path, port in [("data/data_1", fs.StorageServerPortBase + 1),
-#                            ("data/data_2", fs.StorageServerPortBase + 2),
-#                            ("data/data_3", fs.StorageServerPortBase + 3)]:
-#        ss = fs.StorageServer(data_path, port)
-#        servers.append(ss)
-#
-#    threads = []
-#    for ss in servers:
-#        i_thread = threading.Thread(target=run_ss, args=(ss,))
-#        i_thread.daemon = True
-#        i_thread.start()
-#        threads.append(i_thread)
-
+    fs.reset_stats()
     storage_configs = [("data/data_1", fs.StorageServerPortBase + 1),
                        ("data/data_2", fs.StorageServerPortBase + 2),
                        ("data/data_3", fs.StorageServerPortBase + 3)]
@@ -69,16 +55,17 @@ if __name__ == "__main__":
 #    s = servers[0]
 #    s.stop()
     
-    
-    for thread in threads:
-        thread.join()
-    
-    
     try:
-        time.sleep(1000)
+        for thread in threads:
+            thread.join()
     except KeyboardInterrupt:
         for ss in servers:
             ss.stop()
+        
+        msg_count,bytes_count = fs.get_stats()
+
+        print("Total messages sent: {}".format(msg_count))
+        print("Total bytes sent: {}".format(bytes_count))
 
 
 

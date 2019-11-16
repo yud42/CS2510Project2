@@ -14,6 +14,7 @@ def run_ds(ds):
 
 
 if __name__ == "__main__":
+    fs.reset_stats()
     storage_nodes = [((fs.StorageServerIP, fs.StorageServerPortBase + 1), 1),
                      ((fs.StorageServerIP, fs.StorageServerPortBase + 2), 1),
                      ((fs.StorageServerIP, fs.StorageServerPortBase + 3), 1)]
@@ -23,13 +24,11 @@ if __name__ == "__main__":
     i_thread.daemon = True
     i_thread.start()
 
-
-#    time.sleep(15)
-#    ds.stop()
-
-
     try:
         time.sleep(3000)
     except KeyboardInterrupt:
-        pass
+        msg_count,bytes_count = fs.get_stats()
+
+        print("Total messages sent: {}".format(msg_count))
+        print("Total bytes sent: {}".format(bytes_count))
 
