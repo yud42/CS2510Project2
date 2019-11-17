@@ -22,8 +22,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     T = int(args.down_time)
     
-    T = 100
-    
     fs.reset_stats()
     storage_nodes = [((fs.StorageServerIP, fs.StorageServerPortBase + 1), 1),
                      ((fs.StorageServerIP, fs.StorageServerPortBase + 2), 1),
@@ -34,10 +32,11 @@ if __name__ == "__main__":
     i_thread.daemon = True
     i_thread.start()
 
-    time.sleep(T)
-    ds.stop()
+
     
     try:
+        time.sleep(T)
+        ds.stop()
         time.sleep(3000)
     except KeyboardInterrupt:
         msg_count,bytes_count = fs.get_stats()

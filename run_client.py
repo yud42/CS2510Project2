@@ -35,7 +35,8 @@ def launch_client(response_record, data_path, M):
     print("Client on {0} adding file: {1}".format(data_path, filename))
     path = data_path + filename
     file = utils.obtain(path)
-    print(file)
+    if len(file) < 5:
+        print("*" * 21 + path + "*" * 21 + ":" + file + "\n")
     client.addFile(filename, file)
     
     

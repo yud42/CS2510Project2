@@ -1,0 +1,40 @@
+"""
+Running manual
+"""
+
+To guarantee the experimental scenarios as real as possible, we divide our experiment program into three following parts:
+
+Directory servers:
+	run_directory_server.py
+	usage: run_directory_server.py [-h] [-T DOWN_TIME]
+	optional arguments:
+  		-h, --help            show this help message and exit
+  		-T DOWN_TIME, --down_time DOWN_TIME
+                        	time from start the directory node was killed (by default 10)
+Running example: #python run_directory_server.py -T 15
+
+Storage nodes:
+	run_storage_node.py
+	usage: run_storage_node.py [-h] [-N DOWN_NUM] [-T DOWN_TIME]
+	optional arguments:
+  		-h, --help            show this help message and exit
+  		-N DOWN_NUM, --down_num DOWN_NUM 
+					number of storage node down after downtime
+  		-T DOWN_TIME, --down_time DOWN_TIME
+                        		time from start the storage node was killed
+Running example: #python run_storage_node.py -N 1 -T 15
+
+Clients:
+	run_client.py
+	usage: run_client.py [-h] [-M FILESIZE] [-N REQUESTSIZE] [-F FREQUENCY]
+	optional arguments:
+  		-h, --help            show this help message and exit
+  		-M FILESIZE, --filesize FILESIZE
+                        		number of files initialized in a client(by default 3)
+ 		-N REQUESTSIZE, --requestsize REQUESTSIZE
+                        		number of readfile one client triggered(by default 1)
+  		-F FREQUENCY, --frequency FREQUENCY
+                        		frequency of tasks triggered(by default 1)
+Running exmaple: #python run_client.py -M 10 -N 5 -F 0.1
+
+	

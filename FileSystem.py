@@ -246,9 +246,10 @@ class DirectoryServer:
             self.backup_storage_nodes()
         print("Starting a new storage node ...\n")
         self.launch_num += 1
+        launch_num = self.launch_num
         self.backup_launch_num()
         # send message to primary storage node for launching a new node
-        msg = LAUNCH_HEADER + str(self.launch_num)
+        msg = LAUNCH_HEADER + str(launch_num)
         msg = msg.encode(COD)
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -259,7 +260,8 @@ class DirectoryServer:
                 break
             except socket.error:
                 # the primary storage node is down
-                self.detect_storage_node_down(location, 1)
+                #self.detect_storage_node_down(location, 1)
+                pass
 
         s.send(msg)
         update_stats(msg)
@@ -271,7 +273,7 @@ class DirectoryServer:
             print("Unrecognized message received by directory server: {}".format(msg))
 #        s.shutdown(socket.SHUT_RDWR)
         s.close()
-        new_port = StorageServerPortBase + self.launch_num
+        new_port = StorageServerPortBase + launch_num
         self.storage_nodes.append(((StorageServerIP, new_port), 0))
         self.backup_storage_nodes()
         self.copy_to_new_sn(new_port)
@@ -451,6 +453,8 @@ class DirectoryServer:
         """
         data = connection.recv(MAX_RECV_SIZE)
         data = data.decode(COD)
+        #print("*"*21 + data + "*"*21)
+
         if data and data == DISCONNECT:
             self.disconnect(connection, addr)
             return
@@ -461,6 +465,7 @@ class DirectoryServer:
         elif data and data == STORAGE_ERROR:
             self.detect_storage_node_down(self.connect(), 1)
         elif data and data[:len(DATA_HEADER)] == DATA_HEADER:
+            #print("Data file:{}".format(data))
             self.newFile(data, connection, addr)
         elif data and data[:len(BP_STORAGE_HEADER)] == BP_STORAGE_HEADER:
             self.update_storage_nodes(data, connection, addr)
@@ -622,7 +627,7 @@ class StorageServer:
         :param connection: The connection server is connected to 
         :param addr: (ip address, port) of the system connected
         """
-        file_list = get_list(self.data_path)
+        file_list = get_file_list(self.data_path)
         message = encode_list_message(file_list).encode(COD)
         connection.send(message)
         update_stats(message)
@@ -696,9 +701,14 @@ class StorageServer:
             message = DIR_ERROR.encode()
             so.send(message)
             update_stats(message)
-        
+            so.close()
+            so = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            so.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            so.connect((self.dir_ip, self.dir_port))
+
         message = encode_update_message(filename, file, (self.addr, self.port)).encode(COD)
         so.send(message)
+        #print("Updating {0} to {1}\n".format(message, (self.dir_ip, self.dir_port)))
         update_stats(message)        
         so.shutdown(socket.SHUT_RDWR)
         so.close()
@@ -831,7 +841,9 @@ class Clients:
                 except socket.error as e:
                     print(e)
                     self.send_error(dirError=False)
-                    self.connect()
+                    prev = self.locations
+                    while self.locations == prev:
+                        self.connect()
                     self.build_connection(isDir=False)
         
 
