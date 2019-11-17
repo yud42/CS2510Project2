@@ -31,6 +31,7 @@ DirectoryServerPortBase = 6000
 DirectoryServerIP = '136.142.227.10'  #oxygen.cs.pitt.edu
 #DirectoryServerIP = '127.0.0.1'
 
+# client server: nitrogen.cs.pitt.edu
 
 
 #data transfer needs
