@@ -14,6 +14,7 @@ import random
 from collections import defaultdict
 import csv
 
+task_log = {'add':[],'get':[]}
 def launch_client(response_record, data_path, M):
     """
     launch client for different uses
@@ -25,12 +26,12 @@ def launch_client(response_record, data_path, M):
     client.connect()
     
     start = time.time() 
-
+    
     fl = utils.get_file_list(data_path)
-    print(fl)
     #ADDFILE TEST: add local files to file system
     rn = random.randint(0,len(fl)-1)
     filename = fl[rn]
+    task_log['add'].append(filename)
     print("Client on {0} adding file: {1}".format(data_path, filename))
     path = data_path + filename
     file = utils.obtain(path)
@@ -50,7 +51,7 @@ def launch_client(response_record, data_path, M):
     tasks = file_list_dir
     rn = random.randint(0,len(tasks)-1)
     task = tasks[rn]
-        
+    task_log['get'].append(task)
     print("Client on {0} downloading: {1}".format(data_path, task))
     client.readFile(task)    
     end = time.time()
@@ -74,6 +75,7 @@ def run_client(response_record,datapath, F, M, N):
     period = 1/F
     
     for i in range(N):
+        print("Launching {} task".format(i))
         i_thread = threading.Timer(i*period, launch_client, args=(response_record,datapath,M))
         i_thread.daemon = True
         i_thread.start()
@@ -109,7 +111,11 @@ if __name__ == "__main__":
     print('='*21 + 'statistics' + '='*21)
     
     fn='stats_response_time.csv'
-
+    
+    print("Adding tasks: {}".format(task_log['add']))
+    print("Download tasks: {}".format(task_log['get']))
+    
+    
     accu,count = response_record["data/client_1/"]
     print("Average respond time in {0} is {1:4f}".format("data/client_1/",accu/count))
 
